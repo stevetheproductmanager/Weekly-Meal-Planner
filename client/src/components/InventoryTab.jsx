@@ -17,16 +17,30 @@ function InventoryTab({
   const [attachingSide, setAttachingSide] = useState(null);
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState('');
+  const [sortBy, setSortBy] = useState('az');
 
   const allTags = Array.from(
     new Set(dishes.flatMap((d) => (Array.isArray(d.tags) ? d.tags : [])))
   );
 
-  const filtered = dishes.filter((item) => {
-    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const matchesTag = !filterTag || (Array.isArray(item.tags) && item.tags.includes(filterTag));
-    return matchesSearch && matchesTag;
-  });
+  const filtered = dishes
+    .filter((item) => {
+      const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+      const matchesTag = !filterTag || (Array.isArray(item.tags) && item.tags.includes(filterTag));
+      return matchesSearch && matchesTag;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'az':       return a.name.localeCompare(b.name);
+        case 'za':       return b.name.localeCompare(a.name);
+        case 'newest':   return (b.id || '').localeCompare(a.id || '');
+        case 'category': {
+          const catCmp = (a.category || '').localeCompare(b.category || '');
+          return catCmp !== 0 ? catCmp : a.name.localeCompare(b.name);
+        }
+        default: return 0;
+      }
+    });
 
   const mainIdsInPlan = new Set(planEntries.map((e) => e.mainId));
   const sidesInPlanIds = new Set(planWithDetails.flatMap((e) => e.sideIds || []));
@@ -79,18 +93,31 @@ function InventoryTab({
           onChange={(e) => setSearch(e.target.value)}
           className="w-full md:w-1/2 bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
         />
-        {allTags.length > 0 && (
+        <div className="flex items-center gap-2">
           <select
-            value={filterTag}
-            onChange={(e) => setFilterTag(e.target.value)}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
             className="bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
           >
-            <option value="">All tags</option>
-            {allTags.map((tag) => (
-              <option key={tag} value={tag}>{tag}</option>
-            ))}
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
+            <option value="newest">Newest first</option>
+            <option value="category">By category</option>
           </select>
-        )}
+
+          {allTags.length > 0 && (
+            <select
+              value={filterTag}
+              onChange={(e) => setFilterTag(e.target.value)}
+              className="bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+            >
+              <option value="">All tags</option>
+              {allTags.map((tag) => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       <div>{renderContent()}</div>

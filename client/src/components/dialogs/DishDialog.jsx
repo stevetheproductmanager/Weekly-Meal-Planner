@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XIcon } from '../Icons';
 
 const COMMON_UNITS = [
@@ -28,6 +28,12 @@ function DishDialog({ mode, initialKind, dish, onCancel, onSave }) {
   );
 
   const isEdit = mode === 'edit';
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onCancel]);
 
   const handleIngredientChange = (index, field, value) => {
     setIngredients((prev) => {
@@ -81,55 +87,81 @@ function DishDialog({ mode, initialKind, dish, onCancel, onSave }) {
   };
 
   return (
-    <div className="modal-overlay fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="modal w-full max-w-lg mx-3 sm:mx-0 rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden dark:bg-slate-950 dark:border-slate-800">
-        <div className="modal-header px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+    <div
+      className="modal-overlay fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="modal w-full max-w-2xl mx-3 sm:mx-0 rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden dark:bg-slate-950 dark:border-slate-800">
+        <div className="modal-header flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
             {isEdit ? 'Edit dish' : 'Add dish'}
           </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex items-center justify-center rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <XIcon size={14} />
+          </button>
         </div>
         <form
           onSubmit={handleSubmit}
           className="modal-body overflow-y-auto max-h-[80vh] px-4 py-3 space-y-3 text-sm text-slate-900 dark:text-slate-100"
         >
-          <div className="form-row inline flex items-center gap-3">
-            <label className="w-24 text-slate-700 dark:text-slate-300">Type</label>
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-              disabled={isEdit}
-              className="flex-1 bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
-            >
-              <option value="main">Main</option>
-              <option value="side">Side</option>
-            </select>
+          {/* Row 1: Type + Name */}
+          <div className="grid grid-cols-[10rem_1fr] gap-3 items-start">
+            <div className="space-y-1">
+              <label className="block text-slate-700 dark:text-slate-300">Type</label>
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value)}
+                disabled={isEdit}
+                className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+              >
+                <option value="main">Main</option>
+                <option value="side">Side</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-slate-700 dark:text-slate-300">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => { setName(e.target.value); if (e.target.value.trim()) setNameError(''); }}
+                placeholder={kind === 'main' ? 'e.g. Grilled chicken' : 'e.g. Baked potato'}
+                className={`w-full bg-white border rounded-md px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 ${nameError ? 'border-red-400 focus:ring-red-400 focus:border-red-400' : 'border-slate-300 focus:ring-emerald-500 focus:border-emerald-500 dark:border-slate-700'}`}
+              />
+              {nameError && <p className="text-xs text-red-500">{nameError}</p>}
+            </div>
           </div>
 
-          <div className="form-row space-y-1">
-            <label className="block text-slate-700 dark:text-slate-300">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value); if (e.target.value.trim()) setNameError(''); }}
-              placeholder={kind === 'main' ? 'e.g. Grilled chicken' : 'e.g. Baked potato'}
-              className={`w-full bg-white border rounded-md px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 ${nameError ? 'border-red-400 focus:ring-red-400 focus:border-red-400' : 'border-slate-300 focus:ring-emerald-500 focus:border-emerald-500 dark:border-slate-700'}`}
-            />
-            {nameError && <p className="text-xs text-red-500">{nameError}</p>}
+          {/* Row 2: Category + Tags */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="block text-slate-700 dark:text-slate-300">Category <span className="text-slate-400 font-normal">(optional)</span></label>
+              <input
+                type="text"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="e.g. Pasta, Veg, Grain"
+                className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-slate-700 dark:text-slate-300">Tags <span className="text-slate-400 font-normal">(comma-separated, optional)</span></label>
+              <input
+                type="text"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder="e.g. quick, kid-friendly, vegetarian"
+                className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+              />
+            </div>
           </div>
 
-          <div className="form-row space-y-1">
-            <label className="block text-slate-700 dark:text-slate-300">Category (optional)</label>
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Pasta, Veg, Grain"
-              className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
-            />
-          </div>
-
-          <div className="form-row space-y-1">
-            <label className="block text-slate-700 dark:text-slate-300">Recipe URL (optional)</label>
+          {/* Row 3: Recipe URL (full width) */}
+          <div className="space-y-1">
+            <label className="block text-slate-700 dark:text-slate-300">Recipe URL <span className="text-slate-400 font-normal">(optional)</span></label>
             <input
               type="url"
               value={recipeUrl}
@@ -139,25 +171,13 @@ function DishDialog({ mode, initialKind, dish, onCancel, onSave }) {
             />
           </div>
 
-          <div className="form-row space-y-1">
-            <label className="block text-slate-700 dark:text-slate-300">
-              Tags (comma-separated, optional)
-            </label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. quick, kid-friendly, vegetarian"
-              className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
-            />
-          </div>
-
           <div className="form-row space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-slate-700 dark:text-slate-300">Ingredients</label>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 grid grid-cols-[1fr_4rem_5rem_1.75rem] gap-2 w-64 text-right pr-1">
-                <span>name</span><span>qty</span><span>unit</span><span />
-              </span>
+            <label className="block text-slate-700 dark:text-slate-300">Ingredients</label>
+            <div className="grid grid-cols-[1fr_4rem_5rem_1.75rem] gap-2 px-0.5">
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">name</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center">qty</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">unit</span>
+              <span />
             </div>
 
             {/* Unit suggestions datalist */}

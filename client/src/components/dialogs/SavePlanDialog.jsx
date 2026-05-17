@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { XIcon } from '../Icons';
 
 function SavePlanDialog({ defaultName, onCancel, onSave }) {
   const [name, setName] = useState(defaultName || '');
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onCancel]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -10,15 +17,29 @@ function SavePlanDialog({ defaultName, onCancel, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
-      <div className="w-full max-w-sm mx-3 sm:mx-0 rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-        <h2 className="mb-1 text-base font-semibold text-slate-900 dark:text-slate-50">
-          Save this week&apos;s plan
-        </h2>
-        <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-          Give this plan a name so you can find it later.
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="w-full max-w-sm mx-3 sm:mx-0 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
+              Save this week&apos;s plan
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Give this plan a name so you can find it later.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex items-center justify-center rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <XIcon size={14} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-4 py-4 space-y-4">
           <input
             autoFocus
             type="text"
