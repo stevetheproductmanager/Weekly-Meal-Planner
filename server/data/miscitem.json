@@ -1,0 +1,207 @@
+[
+  {
+    "id": "misc_1",
+    "name": "Toilet paper",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_2",
+    "name": "Paper towels",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_3",
+    "name": "Facial tissues (Kleenex)",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_4",
+    "name": "Napkins",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_5",
+    "name": "Hand soap",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_6",
+    "name": "Dish soap",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_7",
+    "name": "Laundry detergent",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_8",
+    "name": "Fabric softener",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_9",
+    "name": "Stain remover",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_10",
+    "name": "Sponges",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_11",
+    "name": "Scrub brushes",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_12",
+    "name": "All-purpose cleaner",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_13",
+    "name": "Glass cleaner",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_14",
+    "name": "Disinfecting wipes",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_15",
+    "name": "Trash bags (kitchen)",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_16",
+    "name": "Trash bags (large/outdoor)",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_17",
+    "name": "Zip-top bags (sandwich)",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_18",
+    "name": "Zip-top bags (gallon)",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_19",
+    "name": "Aluminum foil",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_20",
+    "name": "Plastic wrap",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_21",
+    "name": "Parchment paper",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_22",
+    "name": "Coffee filters",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_23",
+    "name": "Coffee",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_24",
+    "name": "Tea bags",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_25",
+    "name": "Bottled water",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_26",
+    "name": "Sparkling water",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_27",
+    "name": "Sports drinks",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_28",
+    "name": "Shampoo",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_29",
+    "name": "Conditioner",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_30",
+    "name": "Body wash / soap",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_31",
+    "name": "Deodorant",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_32",
+    "name": "Toothpaste",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_33",
+    "name": "Toothbrushes",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_34",
+    "name": "Floss",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_35",
+    "name": "Hand sanitizer",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_36",
+    "name": "Cotton swabs (Q-tips)",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_37",
+    "name": "Cotton balls / pads",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_38",
+    "name": "Pet food",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_39",
+    "name": "Cat litter",
+    "createdAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "misc_miujtrxg_7oc",
+    "name": "Snack Packs",
+    "createdAt": "2025-12-06T17:09:39.364Z"
+  },
+  {
+    "id": "misc_mp7qsd4y_1mj",
+    "name": "rwar",
+    "createdAt": "2026-05-16T02:43:45.154Z"
+  }
+]

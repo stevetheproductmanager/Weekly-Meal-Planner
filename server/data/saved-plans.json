@@ -1,0 +1,211 @@
+[
+  {
+    "id": "plan_mp7fzge2_5d2",
+    "name": "Week of May 01, 2026",
+    "savedAt": "2026-05-15T21:41:20.186Z",
+    "entries": [
+      {
+        "mainId": "main_53",
+        "mainName": "Chicken with White Wine and Roasted Tomatoes",
+        "sideIds": [
+          "side_8"
+        ],
+        "sides": [
+          {
+            "id": "side_8",
+            "name": "Capreses Salad"
+          }
+        ]
+      },
+      {
+        "mainId": "main_60",
+        "mainName": "Enchiladas",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_67",
+        "mainName": "Greek Salad + Chicken",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_105",
+        "mainName": "Street Tacos",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_120",
+        "mainName": "Yumm Bowls",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_114",
+        "mainName": "Thai chicken curry soup",
+        "sideIds": [],
+        "sides": []
+      }
+    ]
+  },
+  {
+    "id": "plan_mp7fka8a_7hb",
+    "name": "Week of May 08, 2026",
+    "savedAt": "2026-05-15T21:29:32.362Z",
+    "entries": [
+      {
+        "mainId": "main_53",
+        "mainName": "Chicken with White Wine and Roasted Tomatoes",
+        "sideIds": [
+          "side_8"
+        ],
+        "sides": [
+          {
+            "id": "side_8",
+            "name": "Capreses Salad"
+          }
+        ]
+      },
+      {
+        "mainId": "main_60",
+        "mainName": "Enchiladas",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_67",
+        "mainName": "Greek Salad + Chicken",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_105",
+        "mainName": "Street Tacos",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_120",
+        "mainName": "Yumm Bowls",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_114",
+        "mainName": "Thai chicken curry soup",
+        "sideIds": [],
+        "sides": []
+      },
+      {
+        "mainId": "main_96",
+        "mainName": "Sammiches",
+        "sideIds": [],
+        "sides": []
+      }
+    ]
+  },
+  {
+    "id": "plan_mp7erwv5_34e",
+    "name": "Week of May 15, 2026",
+    "savedAt": "2026-05-15T21:07:28.673Z",
+    "entries": [
+      {
+        "mainId": "main_2",
+        "mainName": "Alfredo Pasta",
+        "sideIds": [
+          "side_5",
+          "side_7"
+        ],
+        "sides": [
+          {
+            "id": "side_5",
+            "name": "Bruschetta Bread"
+          },
+          {
+            "id": "side_7",
+            "name": "Candy Bacon"
+          }
+        ]
+      },
+      {
+        "mainId": "main_4",
+        "mainName": "BBQ Chicken",
+        "sideIds": [
+          "side_8"
+        ],
+        "sides": [
+          {
+            "id": "side_8",
+            "name": "Capreses Salad"
+          }
+        ]
+      },
+      {
+        "mainId": "main_74",
+        "mainName": "Indian Butter Chicken",
+        "sideIds": [
+          "side_18"
+        ],
+        "sides": [
+          {
+            "id": "side_18",
+            "name": "Green Beans"
+          }
+        ]
+      },
+      {
+        "mainId": "main_28",
+        "mainName": "Chicken Bruschetta",
+        "sideIds": [
+          "side_15"
+        ],
+        "sides": [
+          {
+            "id": "side_15",
+            "name": "Fruit"
+          }
+        ]
+      },
+      {
+        "mainId": "main_1",
+        "mainName": "Airfryer Orange Chicken",
+        "sideIds": [
+          "side_9"
+        ],
+        "sides": [
+          {
+            "id": "side_9",
+            "name": "Cilantro Lime Rice"
+          }
+        ]
+      },
+      {
+        "mainId": "main_33",
+        "mainName": "Chicken Kebob",
+        "sideIds": [
+          "side_10"
+        ],
+        "sides": [
+          {
+            "id": "side_10",
+            "name": "Egg Flour Soup"
+          }
+        ]
+      },
+      {
+        "mainId": "main_59",
+        "mainName": "Enchilada chicken",
+        "sideIds": [
+          "side_4"
+        ],
+        "sides": [
+          {
+            "id": "side_4",
+            "name": "Broccoli"
+          }
+        ]
+      }
+    ]
+  }
+]
