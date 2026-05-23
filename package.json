@@ -1,11 +1,11 @@
 {
   "scripts": {
     "dev": "concurrently --names \"server,client\" --prefix-colors \"yellow,cyan\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "build": "npm install --prefix server && npm install --prefix client && npm run build --prefix client",
+    "build": "npm install --prefix server && npm install --include=dev --prefix client && npm run build --prefix client",
     "start": "node server/server.js"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "24.x"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.22",
