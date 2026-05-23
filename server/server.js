@@ -22,6 +22,9 @@ const __dirname  = path.dirname(__filename);
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust Heroku's reverse proxy so req.protocol is 'https' and OAuth callback URLs are correct
+app.set('trust proxy', 1);
+
 // ---------------------------------------------------------------------------
 // Middleware
 // ---------------------------------------------------------------------------

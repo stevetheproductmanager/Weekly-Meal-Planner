@@ -7,9 +7,8 @@ passport.use(
     {
       clientID:     process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL:  process.env.NODE_ENV === 'production'
-        ? `${process.env.CLIENT_URL}/auth/google/callback`
-        : 'http://localhost:5000/auth/google/callback',
+      callbackURL:  '/auth/google/callback',
+      proxy:        true,   // trust x-forwarded-proto so https is used on Heroku
     },
     async (_accessToken, _refreshToken, profile, done) => {
       try {
