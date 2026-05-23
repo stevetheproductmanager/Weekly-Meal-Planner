@@ -308,7 +308,10 @@ app.post('/api/grocery-list', async (req, res) => {
 
 app.get('/api/misc-items', requireAuth, async (req, res) => {
   try {
-    const items = await MiscItem.find({ userId: req.user._id }).sort({ createdAt: 1 }).lean();
+    // Return shared/default items + user's own custom items, sorted by name
+    const items = await MiscItem.find({
+      $or: [{ isShared: true }, { userId: req.user._id }],
+    }).sort({ name: 1 }).lean();
     res.json(items.map(normaliseId));
   } catch (err) {
     res.status(500).json({ message: 'Failed to load misc items' });
@@ -321,14 +324,14 @@ app.post('/api/misc-items', requireAuth, async (req, res) => {
     if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
     const trimmed = name.trim();
 
-    // Case-insensitive duplicate check
+    // Case-insensitive duplicate check across shared + user's own items
     const existing = await MiscItem.findOne({
-      userId: req.user._id,
+      $or: [{ isShared: true }, { userId: req.user._id }],
       name: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, 'i') },
     });
     if (existing) return res.status(200).json(normaliseId(existing.toObject()));
 
-    const item = await MiscItem.create({ userId: req.user._id, name: trimmed });
+    const item = await MiscItem.create({ userId: req.user._id, name: trimmed, isShared: false });
     res.status(201).json(normaliseId(item.toObject()));
   } catch (err) {
     res.status(500).json({ message: 'Failed to create misc item' });
@@ -339,12 +342,13 @@ app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
   try {
     const { name } = req.body || {};
     if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
+    // Only allow editing user-owned items, not shared ones
     const item = await MiscItem.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id },
+      { _id: req.params.id, userId: req.user._id, isShared: false },
       { name: name.trim() },
       { new: true }
     );
-    if (!item) return res.status(404).json({ message: 'Not found' });
+    if (!item) return res.status(404).json({ message: 'Not found or not editable' });
     res.json(normaliseId(item.toObject()));
   } catch (err) {
     res.status(500).json({ message: 'Failed to update misc item' });
@@ -353,8 +357,9 @@ app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/misc-items/:id', requireAuth, async (req, res) => {
   try {
-    const result = await MiscItem.deleteOne({ _id: req.params.id, userId: req.user._id });
-    if (result.deletedCount === 0) return res.status(404).json({ message: 'Not found' });
+    // Only allow deleting user-owned items, not shared ones
+    const result = await MiscItem.deleteOne({ _id: req.params.id, userId: req.user._id, isShared: false });
+    if (result.deletedCount === 0) return res.status(404).json({ message: 'Not found or not deletable' });
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ message: 'Failed to delete misc item' });

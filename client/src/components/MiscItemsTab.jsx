@@ -63,15 +63,17 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
                 </td>
                 <td className="px-3 py-2 align-middle">
                   <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
-                      title="Edit item"
-                      onClick={() => handleEditClick(item)}
-                    >
-                      <PencilIcon />
-                    </button>
-                    {onDeleteItem && (
+                    {!item.isShared && (
+                      <button
+                        type="button"
+                        className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
+                        title="Edit item"
+                        onClick={() => handleEditClick(item)}
+                      >
+                        <PencilIcon />
+                      </button>
+                    )}
+                    {onDeleteItem && !item.isShared && (
                       <button
                         type="button"
                         className="icon-button danger inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
@@ -129,15 +131,17 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
-                  title="Edit item"
-                  onClick={() => handleEditClick(item)}
-                >
-                  <PencilIcon />
-                </button>
-                {onDeleteItem && (
+                {!item.isShared && (
+                  <button
+                    type="button"
+                    className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
+                    title="Edit item"
+                    onClick={() => handleEditClick(item)}
+                  >
+                    <PencilIcon />
+                  </button>
+                )}
+                {onDeleteItem && !item.isShared && (
                   <button
                     type="button"
                     className="icon-button danger inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"

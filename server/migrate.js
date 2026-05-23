@@ -19,6 +19,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import Dish from './models/Dish.js';
+import MiscItem from './models/MiscItem.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -97,7 +98,44 @@ async function main() {
   const sides = await importDishes(sidesFile, 'side');
   console.log(`\n   ✅ ${sides.inserted} inserted, ${sides.skipped} skipped\n`);
 
-  console.log(`🎉  Migration complete! ${mains.inserted + sides.inserted} dishes imported.`);
+  // --- Misc items ---
+  console.log('🛒  Importing misc items (miscitem.json)…');
+  const miscFile = path.join(__dirname, 'data', 'miscitem.json');
+  let miscRaw;
+  try {
+    miscRaw = await fs.readFile(miscFile, 'utf-8');
+  } catch {
+    console.log('  ⚠️  miscitem.json not found — skipping.\n');
+    miscRaw = null;
+  }
+
+  let miscInserted = 0, miscSkipped = 0;
+  if (miscRaw) {
+    const miscItems = JSON.parse(miscRaw);
+    for (const item of miscItems) {
+      if (!item.name) { miscSkipped++; continue; }
+      const exists = await MiscItem.exists({
+        isShared: true,
+        name: { $regex: new RegExp(`^${item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      });
+      if (exists) {
+        miscSkipped++;
+        process.stdout.write('s');
+        continue;
+      }
+      await MiscItem.create({
+        userId: null,
+        name: item.name,
+        isShared: true,
+        createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+      });
+      miscInserted++;
+      process.stdout.write('.');
+    }
+    console.log(`\n   ✅ ${miscInserted} inserted, ${miscSkipped} skipped\n`);
+  }
+
+  console.log(`🎉  Migration complete! ${mains.inserted + sides.inserted} dishes + ${miscInserted} misc items imported.`);
   await mongoose.disconnect();
 }
 
