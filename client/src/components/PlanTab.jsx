@@ -2,56 +2,52 @@ import React, { useState } from 'react';
 import WeeklyPlan from './plan/WeeklyPlan';
 import { SaveIcon } from './Icons';
 
-function PlanTab({
-  entries,
-  allMains,
-  allSides,
-  onAddMainToPlan,
-  onRemoveEntry,
-  onAttachSide,
-  onRemoveSide,
-  onSavePlan,
-}) {
+function PlanTab({ entries, allMains, allSides, onAddMainToPlan, onRemoveEntry, onAttachSide, onRemoveSide, onSavePlan, onReorderEntries }) {
   const [view, setView] = useState('list');
 
   return (
-    <div className="plan-tab">
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <div>
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">This Week&apos;s Dinners</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Up to 7 dinners. Each dinner has one main and any number of sides.
+            {entries.length === 0 ? 'No dinners planned yet — add up to 7.' : `${entries.length} of 7 nights planned.`}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {/* List / Calendar toggle — desktop only; mobile always uses list view */}
+        <div className="flex items-center gap-2">
+          {/* List / Grid toggle — desktop only */}
           <div className="hidden sm:inline-flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 dark:border-slate-700/60 dark:bg-slate-800/60">
-            {['list', 'calendar'].map((v) => (
+            {[
+              { id: 'list', label: 'List' },
+              { id: 'grid', label: 'Grid' },
+            ].map(v => (
               <button
-                key={v}
+                key={v.id}
                 type="button"
-                onClick={() => setView(v)}
-                className={`px-3 py-1 text-xs font-medium rounded-md capitalize transition-all duration-150 ${
-                  view === v
+                onClick={() => setView(v.id)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all duration-150 ${
+                  view === v.id
                     ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-slate-100'
                     : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
-                {v}
+                {v.label}
               </button>
             ))}
           </div>
 
-          {/* Save icon button */}
-          {entries.length > 0 && (
+          {/* Save button */}
+          {entries.length > 0 && onSavePlan && (
             <button
               type="button"
               onClick={onSavePlan}
-              title="Save this week's plan"
-              className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-600 shadow-sm transition-all duration-150 hover:bg-emerald-100 hover:border-emerald-300 hover:shadow active:translate-y-px dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50 dark:hover:border-emerald-700"
+              title="Save this week's plan to history"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition-all hover:bg-emerald-100 hover:border-emerald-300 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
             >
-              <SaveIcon size={16} />
+              <SaveIcon size={13} />
+              Save plan
             </button>
           )}
         </div>
@@ -66,6 +62,7 @@ function PlanTab({
         onRemoveEntry={onRemoveEntry}
         onAttachSide={onAttachSide}
         onRemoveSide={onRemoveSide}
+        onReorderEntries={onReorderEntries}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import InventoryTab from './components/InventoryTab';
 import PlanTab from './components/PlanTab';
 import PlanHistoryTab from './components/PlanHistoryTab';
@@ -11,7 +11,7 @@ import HelpDialog from './components/dialogs/HelpDialog';
 import MiscItemsTab from './components/MiscItemsTab';
 import LandingPage from './components/LandingPage';
 import { ToastContainer } from './components/Toast';
-import { UtensilsIcon, SunIcon, MoonIcon, ShoppingCartIcon, MenuIcon, XIcon } from './components/Icons';
+import { UtensilsIcon, SunIcon, MoonIcon, ShoppingCartIcon, MenuIcon, XIcon, ChevronDownIcon } from './components/Icons';
 import { useAuth } from './context/AuthContext';
 import './index.css';
 
@@ -90,6 +90,20 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
 
   // ---- Mobile menu ----
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // ---- User context menu (desktop) ----
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [userMenuOpen]);
 
   // ---- Theme state ----
   const [theme, setTheme] = useState(() => {
@@ -469,9 +483,12 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
   };
 
   const handleRemoveEntryFromPlan = (entryId) => {
+    const entry = planEntries.find((e) => e.id === entryId);
+    const main  = mains.find((m) => m.id === entry?.mainId);
     const updated = planEntries.filter((e) => e.id !== entryId);
     setPlanEntries(updated);
     persistPlan(updated);
+    if (main) addToast(`"${main.name}" removed from this week's plan.`, 'info');
   };
 
   const updateEntry = (entryId, newFields) => {
@@ -480,6 +497,15 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
     );
     setPlanEntries(updated);
     persistPlan(updated);
+  };
+
+  const handleReorderPlan = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    const newEntries = [...planEntries];
+    const [moved] = newEntries.splice(fromIndex, 1);
+    newEntries.splice(toIndex, 0, moved);
+    setPlanEntries(newEntries);
+    persistPlan(newEntries);
   };
 
   const handleAttachSide = (entryId, sideId) => {
@@ -496,8 +522,10 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
   const handleRemoveSide = (entryId, sideId) => {
     const entry = planEntries.find((e) => e.id === entryId);
     if (!entry) return;
+    const side = sides.find((s) => s.id === sideId);
     const newSideIds = (entry.sideIds || []).filter((id) => id !== sideId);
     updateEntry(entryId, { sideIds: newSideIds });
+    if (side) addToast(`"${side.name}" removed from the plan.`, 'info');
   };
 
   // ---- Grocery actions ----
@@ -723,81 +751,119 @@ const handleRenameMiscItem = async (id, newName) => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 overflow-x-hidden w-full">
 
       {/* Guest banner */}
       {isGuest && (
         <div className="flex items-center justify-between gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-300">
-          <span>👋 You&apos;re browsing as a guest — your plan is saved locally. Sign in to unlock history, other items, and cloud sync.</span>
+          <span className="min-w-0">👋 You&apos;re browsing as a guest — your plan is saved locally. Sign in to unlock history, other items, and cloud sync.</span>
           <button
             onClick={signIn}
             className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
           >
-            Sign in with Google
+            Sign in
           </button>
         </div>
       )}
 
       {/* Header */}
-      <header className="relative overflow-hidden border-b border-emerald-200/70 bg-gradient-to-br from-white via-slate-50 to-emerald-50/80 shadow-sm dark:border-emerald-900/40 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/30">
+      <header className="relative border-b border-emerald-200/70 bg-gradient-to-br from-white via-slate-50 to-emerald-50/80 shadow-sm dark:border-emerald-900/40 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/30">
         {/* Decorative orb */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl dark:bg-emerald-400/6" />
 
         {/* Top bar */}
         <div className="relative w-full px-4 sm:px-6 py-3 sm:py-5 flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2.5 text-slate-900 dark:text-slate-50">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight flex items-center gap-2.5 text-slate-900 dark:text-slate-50">
               <span className="text-emerald-600 dark:text-emerald-400">
                 <UtensilsIcon size={22} />
               </span>
-              Simmer: The Weekly Meal Planner
+              <span className="sm:hidden">Simmer</span>
+              <span className="hidden sm:inline">Simmer: The Weekly Meal Planner</span>
             </h1>
             <p className="hidden sm:block mt-0.5 text-sm text-slate-500 dark:text-slate-400">
               Dinner decided, groceries sorted.
             </p>
           </div>
 
-          {/* Desktop: user info + theme toggle + help */}
+          {/* Desktop: user context menu / guest controls */}
           <div className="hidden sm:flex items-center gap-2">
             {user ? (
-              <div className="flex items-center gap-2">
-                {user.avatar && (
-                  <img src={user.avatar} alt={user.name} className="h-7 w-7 rounded-full border border-slate-200 dark:border-slate-700" />
-                )}
-                <span className="text-xs text-slate-500 dark:text-slate-400 max-w-[120px] truncate">{user.name}</span>
+              /* ── Signed-in: avatar + name → dropdown ── */
+              <div className="relative" ref={userMenuRef}>
                 <button
                   type="button"
-                  onClick={signOut}
-                  className="inline-flex items-center rounded-full border border-slate-200 bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm transition-all hover:border-red-300 hover:text-red-600 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 pl-1 pr-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
                 >
-                  Sign out
+                  {user.avatar
+                    ? <img src={user.avatar} alt={user.name} className="h-6 w-6 rounded-full border border-slate-200 dark:border-slate-700" />
+                    : <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white text-xs font-bold">{user.name?.[0] ?? '?'}</span>
+                  }
+                  <span className="max-w-[120px] truncate">{user.name}</span>
+                  <ChevronDownIcon size={12} />
                 </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900 z-50">
+                    <div className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+                        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setHelpOpen(true); setUserMenuOpen(false); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-xs font-semibold leading-none">?</span>
+                        Help
+                      </button>
+                    </div>
+                    <div className="border-t border-slate-100 p-1 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => { signOut(); setUserMenuOpen(false); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={signIn}
-                className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-sm transition-all hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
-              >
-                Sign in with Google
-              </button>
+              /* ── Guest: sign in + theme + help ── */
+              <>
+                <button
+                  type="button"
+                  onClick={signIn}
+                  className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-sm transition-all hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
+                >
+                  Sign in with Google
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm transition-all hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
+                  title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                >
+                  {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen(true)}
+                  title="Help"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-sm font-semibold text-slate-500 shadow-sm transition-all hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
+                >
+                  ?
+                </button>
+              </>
             )}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-all duration-150 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
-            >
-              {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-              <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setHelpOpen(true)}
-              title="Help"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-sm font-semibold text-slate-500 shadow-sm transition-all duration-150 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
-            >
-              ?
-            </button>
           </div>
 
           {/* Mobile: hamburger */}
@@ -1050,7 +1116,7 @@ const handleRenameMiscItem = async (id, newName) => {
                 />
               </section>
             ) : (
-              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
+              <section className="-mx-4 sm:mx-0 sm:rounded-2xl border-y sm:border border-slate-200/80 bg-white px-4 py-4 sm:p-5 shadow-none sm:shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
                 <PlanTab
                   entries={planWithDetails}
                   allMains={mains}
@@ -1060,6 +1126,7 @@ const handleRenameMiscItem = async (id, newName) => {
                   onAttachSide={handleAttachSide}
                   onRemoveSide={handleRemoveSide}
                   onSavePlan={!isGuest ? () => setSavePlanDialogOpen(true) : null}
+                  onReorderEntries={handleReorderPlan}
                 />
               </section>
             )}

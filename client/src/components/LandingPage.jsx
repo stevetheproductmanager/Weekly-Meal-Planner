@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { UtensilsIcon, SunIcon, MoonIcon } from './Icons';
 
 function GoogleIcon() {
   return (
@@ -16,59 +17,105 @@ const FEATURES = [
   {
     icon: '🍽️',
     title: 'Meal Library',
-    desc: 'Browse 700+ pre-loaded meals from TheMealDB or add your own. Filter by category, tag, or search.',
+    desc: 'Browse 700+ pre-loaded meals or add your own. Filter by category, tag, or search.',
   },
   {
     icon: '📅',
     title: 'Weekly Planner',
-    desc: 'Drag meals into your week, attach sides to each dinner, and see the full plan at a glance.',
+    desc: 'Pick meals for each night, attach sides, and see your full week at a glance.',
   },
   {
     icon: '🛒',
     title: 'Auto Grocery List',
-    desc: 'Every ingredient from every planned meal is collected and combined automatically. Shop once.',
+    desc: 'Every ingredient from every planned meal combined automatically. Shop once.',
   },
   {
     icon: '🗂️',
     title: 'Plan History',
-    desc: 'Save and name your favourite weeks. Reload any past plan in one click — perfect for meal rotation.',
+    desc: 'Save and name favourite weeks. Reload any past plan in one click.',
   },
 ];
 
 export default function LandingPage() {
   const { signIn, enterGuestMode } = useAuth();
 
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('theme') || 'dark'; } catch { return 'dark'; }
+  });
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try { localStorage.setItem('theme', next); } catch {}
+    // keep the document class in sync so the app picks it up on entry
+    document.documentElement.classList.toggle('dark', next === 'dark');
+  };
+
+  const dark = theme === 'dark';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white flex flex-col">
+    <div className={`min-h-screen flex flex-col transition-colors duration-200 ${
+      dark
+        ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white'
+        : 'bg-gradient-to-br from-slate-50 via-white to-emerald-50 text-slate-900'
+    }`}>
 
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
-          <span className="text-2xl">🍲</span>
+              <span className="text-emerald-600 dark:text-emerald-400">
+                <UtensilsIcon size={22} />
+              </span>
           <span className="text-xl font-bold tracking-tight">Simmer</span>
         </div>
-        <button
-          onClick={signIn}
-          className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-white/20"
-        >
-          <GoogleIcon />
-          Sign in
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={signIn}
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium backdrop-blur transition ${
+              dark
+                ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+                : 'border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50'
+            }`}
+          >
+            <GoogleIcon />
+            Sign in
+          </button>
+          <button
+            onClick={toggleTheme}
+            title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${
+              dark
+                ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+                : 'border-slate-300 bg-white text-slate-600 shadow-sm hover:bg-slate-50'
+            }`}
+          >
+            {dark ? <SunIcon size={15} /> : <MoonIcon size={15} />}
+          </button>
+        </div>
       </nav>
 
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16 max-w-4xl mx-auto w-full">
-        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-sm text-emerald-400 mb-8">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          Free to use · No credit card required
+        <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm mb-8 ${
+          dark
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+            : 'border-emerald-400/40 bg-emerald-50 text-emerald-700'
+        }`}>
+          <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${dark ? 'bg-emerald-400' : 'bg-emerald-500'}`} />
+          Free to use!
         </div>
 
-        <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight leading-tight mb-6">
-          Dinner decided.<br />
-          <span className="text-emerald-400">Groceries sorted.</span>
-        </h1>
+        <div className="flex items-center justify-center gap-5 mb-6">
+          <div className={`shrink-0 rounded-2xl p-3 ${dark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-600'}`}>
+            <UtensilsIcon size={48} />
+          </div>
+          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight leading-tight text-left">
+            Dinner decided,<br />
+            <span className={dark ? 'text-emerald-400' : 'text-emerald-600'}>Groceries sorted.</span>
+          </h1>
+        </div>
 
-        <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mb-10 leading-relaxed">
+        <p className={`text-lg sm:text-xl max-w-2xl mb-10 leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
           Simmer is your personal weekly meal planner. Build a library of meals,
           plan your week in seconds, and get an auto-generated grocery list —
           so you only need to go shopping once.
@@ -84,15 +131,19 @@ export default function LandingPage() {
           </button>
           <button
             onClick={enterGuestMode}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-6 py-3.5 text-base font-medium text-white backdrop-blur transition hover:bg-white/10 active:scale-95"
+            className={`inline-flex items-center gap-2 rounded-xl border px-6 py-3.5 text-base font-medium transition active:scale-95 ${
+              dark
+                ? 'border-white/20 bg-white/5 text-white backdrop-blur hover:bg-white/10'
+                : 'border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50'
+            }`}
           >
             Try it free →
-            <span className="text-xs text-slate-400">(no sign-in needed)</span>
+            <span className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-400'}`}>(no sign-in needed)</span>
           </button>
         </div>
 
-        <p className="mt-4 text-xs text-slate-500">
-          Guest mode lets you browse & plan — sign in to save your plan and history.
+        <p className={`mt-4 text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+          Guest mode lets you browse &amp; plan — sign in to save your plan and history.
         </p>
       </main>
 
@@ -102,19 +153,23 @@ export default function LandingPage() {
           {FEATURES.map(f => (
             <div
               key={f.title}
-              className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur"
+              className={`rounded-2xl border p-5 ${
+                dark
+                  ? 'border-white/10 bg-white/5 backdrop-blur'
+                  : 'border-slate-200 bg-white shadow-sm'
+              }`}
             >
               <div className="text-3xl mb-3">{f.icon}</div>
-              <h3 className="font-semibold text-white mb-1">{f.title}</h3>
-              <p className="text-sm text-slate-400 leading-relaxed">{f.desc}</p>
+              <h3 className={`font-semibold mb-1 ${dark ? 'text-white' : 'text-slate-800'}`}>{f.title}</h3>
+              <p className={`text-sm leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="text-center pb-8 text-xs text-slate-600">
-        Simmer · The Weekly Meal Planner
+      <footer className={`text-center pb-8 text-xs ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+        © 2026   Simmer: The Weekly Meal Planner
       </footer>
     </div>
   );
