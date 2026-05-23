@@ -319,6 +319,12 @@ function DesktopListItem({
       {/* Meal info */}
       <div className="flex-1 flex flex-col justify-center gap-1.5 px-5 py-3.5 min-w-0">
         <div className="flex items-center gap-2.5 min-w-0">
+          {entry.main?.recipeUrl && (
+            <a href={entry.main.recipeUrl} target="_blank" rel="noopener noreferrer" title="Open recipe"
+              className="shrink-0 text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors">
+              <BookOpenIcon size={14} />
+            </a>
+          )}
           <span className="text-[15px] font-bold text-slate-900 dark:text-slate-50 truncate">
             {entry.main?.name}
           </span>
@@ -363,24 +369,6 @@ function DesktopListItem({
         ) : (
           <span className="text-xs text-slate-300 dark:text-slate-700 select-none">All sides added</span>
         )}
-      </div>
-
-      {/* Recipe link — always-present column, invisible when no URL */}
-      <div className="shrink-0 flex items-center justify-center w-10 border-l border-slate-200/60 dark:border-slate-800/50">
-        <a
-          href={entry.main?.recipeUrl || undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Open recipe"
-          onClick={e => { if (!entry.main?.recipeUrl) e.preventDefault(); }}
-          className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-            entry.main?.recipeUrl
-              ? 'text-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-950/40 cursor-pointer'
-              : 'invisible'
-          }`}
-        >
-          <BookOpenIcon size={14} />
-        </a>
       </div>
 
       {/* Delete */}
