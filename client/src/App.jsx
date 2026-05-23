@@ -7,6 +7,7 @@ import DishDialog from './components/dialogs/DishDialog';
 import ConfirmDialog from './components/dialogs/ConfirmDialog';
 import MiscItemDialog from './components/dialogs/MiscItemDialog';
 import SavePlanDialog from './components/dialogs/SavePlanDialog';
+import HelpDialog from './components/dialogs/HelpDialog';
 import MiscItemsTab from './components/MiscItemsTab';
 import { ToastContainer } from './components/Toast';
 import { UtensilsIcon, SunIcon, MoonIcon, ShoppingCartIcon, MenuIcon, XIcon } from './components/Icons';
@@ -57,6 +58,7 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
   });
 
   const [limitDialogOpen, setLimitDialogOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [savedPlans, setSavedPlans] = useState([]);
   const [savePlanDialogOpen, setSavePlanDialogOpen] = useState(false);
   const [reloadConfirmPlan, setReloadConfirmPlan] = useState(null);
@@ -693,22 +695,32 @@ const handleRenameMiscItem = async (id, newName) => {
               <span className="text-emerald-600 dark:text-emerald-400">
                 <UtensilsIcon size={22} />
               </span>
-              Weekly Meal Planner
+              Simmer: The Weekly Meal Planner
             </h1>
             <p className="hidden sm:block mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-              Build your week, grow your cookbook, skip the guesswork.
+              Dinner decided, groceries sorted.
             </p>
           </div>
 
-          {/* Desktop: theme toggle */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="hidden sm:inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-all duration-150 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
-          >
-            {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-          </button>
+          {/* Desktop: theme toggle + help */}
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-all duration-150 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
+            >
+              {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+              <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              title="Help"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-sm font-semibold text-slate-500 shadow-sm transition-all duration-150 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
+            >
+              ?
+            </button>
+          </div>
 
           {/* Mobile: hamburger */}
           <button
@@ -752,6 +764,14 @@ const handleRenameMiscItem = async (id, newName) => {
               >
                 {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setHelpOpen(true); setMenuOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-900/60"
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-xs font-semibold leading-none">?</span>
+                Help
               </button>
               <p className="px-3 py-1.5 text-xs text-slate-400 dark:text-slate-500">
                 {planWithDetails.length} / 7 dinners planned
@@ -1040,6 +1060,8 @@ const handleRenameMiscItem = async (id, newName) => {
 
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

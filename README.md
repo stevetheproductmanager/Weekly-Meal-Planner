@@ -1,4 +1,4 @@
-# Weekly Meal Planner
+# Simmer — The Weekly Meal Planner
 
 A full-stack React + Tailwind + Express app for planning up to **7 dinners per week**, managing a library of mains and sides, auto-generating a grocery list from your plan, and tracking what you buy.
 

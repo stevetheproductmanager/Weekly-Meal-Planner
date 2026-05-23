@@ -5,80 +5,23 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
   const safeItems = Array.isArray(items) ? items : [];
   const [viewMode, setViewMode] = useState('cards');
   const [search, setSearch] = useState('');
-
-  const sortedItems = [...safeItems]
-    .filter((item) => item.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) =>
-      (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }),
-    );
+  const [sortBy, setSortBy] = useState('az');
 
   const handleAddClick = () => { if (onOpenMiscDialog) onOpenMiscDialog(null); };
   const handleEditClick = (item) => { if (onOpenMiscDialog) onOpenMiscDialog(item); };
 
-  const renderHeader = () => (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 className="text-lg font-semibold">Other Items Inventory</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Common non-meal items you often buy. Add them to this week&apos;s grocery list in one click.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search items…"
-            className="w-48 rounded-md border border-slate-300 bg-slate-50 py-1.5 pl-3 pr-7 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <XIcon size={12} />
-            </button>
-          )}
-        </div>
-        <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs dark:bg-slate-900">
-          <button
-            type="button"
-            className={`px-3 py-1 rounded-full ${
-              viewMode === 'cards'
-                ? 'bg-slate-700 text-white'
-                : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-            }`}
-            onClick={() => setViewMode('cards')}
-          >
-            Cards
-          </button>
-          <button
-            type="button"
-            className={`px-3 py-1 rounded-full ${
-              viewMode === 'list'
-                ? 'bg-slate-700 text-white'
-                : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-            }`}
-            onClick={() => setViewMode('list')}
-          >
-            List
-          </button>
-        </div>
-        {onOpenMiscDialog && (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:from-emerald-400 hover:to-emerald-500 hover:shadow active:translate-y-px active:shadow-none"
-            onClick={handleAddClick}
-          >
-            <span className="text-base leading-none">＋</span>
-            Add item
-          </button>
-        )}
-      </div>
-    </div>
-  );
+  const displayItems = [...safeItems]
+    .filter((item) => item.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'az':     return (a.name || '').localeCompare(b.name || '');
+        case 'za':     return (b.name || '').localeCompare(a.name || '');
+        case 'newest': return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        default:       return 0;
+      }
+    });
+
+  const noResults = safeItems.length > 0 && displayItems.length === 0;
 
   const renderEmpty = () => (
     <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -101,7 +44,7 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
           </tr>
         </thead>
         <tbody>
-          {sortedItems.map((item) => {
+          {displayItems.map((item) => {
             const inList = activeGroceryInventoryIds.has(item.id);
             return (
               <tr
@@ -163,7 +106,7 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
 
   const renderCardView = () => (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-      {sortedItems.map((item) => {
+      {displayItems.map((item) => {
         const inList = activeGroceryInventoryIds.has(item.id);
         return (
           <div
@@ -227,11 +170,87 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
     </div>
   );
 
-  const noResults = safeItems.length > 0 && sortedItems.length === 0;
-
   return (
     <div className="flex flex-col gap-4">
-      {renderHeader()}
+
+      {/* Header: title + Cards/List toggle + Add button */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Other Items Inventory</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Common non-meal items you often buy. Add them to this week&apos;s grocery list in one click.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs dark:bg-slate-900">
+            <button
+              type="button"
+              className={`px-3 py-1 rounded-full ${
+                viewMode === 'cards'
+                  ? 'bg-slate-700 text-white'
+                  : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+              }`}
+              onClick={() => setViewMode('cards')}
+            >
+              Cards
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1 rounded-full ${
+                viewMode === 'list'
+                  ? 'bg-slate-700 text-white'
+                  : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+              }`}
+              onClick={() => setViewMode('list')}
+            >
+              List
+            </button>
+          </div>
+          {onOpenMiscDialog && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:from-emerald-400 hover:to-emerald-500 hover:shadow active:translate-y-px active:shadow-none"
+              onClick={handleAddClick}
+            >
+              <span className="text-base leading-none">＋</span>
+              Add item
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filter bar: search + sort */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-slate-800">
+        <div className="relative w-full md:w-1/2">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search items…"
+            className="w-full rounded-md border border-slate-300 bg-white py-1.5 pl-3 pr-7 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder-slate-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <XIcon size={12} />
+            </button>
+          )}
+        </div>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="bg-white border border-slate-300 rounded-md px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+        >
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+          <option value="newest">Newest first</option>
+        </select>
+      </div>
+
+      {/* Content */}
       {safeItems.length === 0
         ? renderEmpty()
         : noResults

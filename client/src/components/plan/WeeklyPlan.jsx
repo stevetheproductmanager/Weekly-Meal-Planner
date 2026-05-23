@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { XIcon } from '../Icons';
+import { XIcon, BookOpenIcon } from '../Icons';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -124,9 +124,23 @@ function ListItem({ entry, index, allSides, onRemoveEntry, onAttachSide, onRemov
           <span className={`text-[10px] font-bold uppercase tracking-widest shrink-0 w-[4.5rem] ${color.label}`}>
             {DAYS[index]}
           </span>
-          <strong className="text-xl sm:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-50">
-            {entry.main?.name}
-          </strong>
+          <span className="inline-flex items-center gap-2">
+                        {entry.main?.recipeUrl && (
+              <a
+                href={entry.main.recipeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open recipe"
+                className="inline-flex items-center justify-center rounded-full p-1 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition-colors"
+              >
+                <BookOpenIcon size={15} />
+              </a>
+            )}
+            <strong className="text-xl sm:text-2xl font-bold leading-tight text-slate-900 dark:text-slate-50">
+              {entry.main?.name}
+            </strong>
+
+          </span>
 
           {entry.sides && entry.sides.length > 0 && (
             <div className="flex flex-wrap gap-2 items-center">

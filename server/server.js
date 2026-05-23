@@ -17,6 +17,9 @@ const planFile = path.join(dataDir, 'plan.json');
 const miscFile = path.join(dataDir, 'miscitem.json'); // shared misc items inventory
 const savedPlansFile = path.join(dataDir, 'saved-plans.json');
 
+// In-memory cache for the large list files so we don't read 800 KB+ from disk on every request
+const memCache = new Map();
+
 app.use(cors());
 app.use(express.json());
 
@@ -57,12 +60,18 @@ async function ensureDataFiles() {
 }
 
 async function readJson(filePath) {
+  // Serve from memory cache when available (avoids re-reading large files on every request)
+  if (memCache.has(filePath)) return memCache.get(filePath);
   const data = await fs.readFile(filePath, 'utf-8');
   if (!data) return null;
-  return JSON.parse(data);
+  const parsed = JSON.parse(data);
+  memCache.set(filePath, parsed);
+  return parsed;
 }
 
 async function writeJson(filePath, data) {
+  // Keep cache in sync so the next read is instant
+  memCache.set(filePath, data);
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
@@ -499,7 +508,15 @@ app.delete('/api/saved-plans/:id', async (req, res) => {
 // --- Startup ---
 
 ensureDataFiles()
-  .then(() => {
+  .then(async () => {
+    // Pre-warm the in-memory cache for the large list files so the first
+    // request is served from RAM rather than triggering a cold disk read.
+    await Promise.all([
+      readJson(mainsFile).catch(() => null),
+      readJson(sidesFile).catch(() => null),
+    ]);
+    console.log('✅ Data cache warmed (mains + sides loaded into memory)');
+
     app.listen(PORT, () => {
       console.log(`Meal planner API listening on port ${PORT}`);
     });

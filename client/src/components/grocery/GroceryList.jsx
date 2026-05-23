@@ -150,37 +150,28 @@ function GroceryList({
 
   return (
     <div className="space-y-3">
-      {/* Search */}
-      <div className="relative">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search grocery list…"
-          className="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-3 pr-8 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => setSearch('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-          >
-            <XIcon size={12} />
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500 dark:text-slate-400">
-          {filteredItems.length}{search ? ` of ${safeItems.length}` : ''}{' '}
-          {safeItems.length === 1 ? 'item' : 'items'}
-          {shoppingMode && checkedCount > 0 && (
-            <span className="ml-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-              · {checkedCount} checked
-            </span>
+      {/* Search + group-by toggle on one line */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search grocery list…"
+            className="w-full rounded-md border border-slate-200 bg-slate-50 py-1.5 pl-3 pr-8 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <XIcon size={12} />
+            </button>
           )}
-        </span>
-        <div className="inline-flex rounded-full bg-slate-100 p-0.5 dark:bg-slate-900">
+        </div>
+
+        <div className="inline-flex shrink-0 rounded-full bg-slate-100 p-0.5 dark:bg-slate-900">
           <button
             type="button"
             onClick={() => setGroupBy('category')}
@@ -204,6 +195,19 @@ function GroceryList({
             By meal
           </button>
         </div>
+      </div>
+
+      {/* Item count */}
+      <div>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {filteredItems.length}{search ? ` of ${safeItems.length}` : ''}{' '}
+          {safeItems.length === 1 ? 'item' : 'items'}
+          {shoppingMode && checkedCount > 0 && (
+            <span className="ml-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+              · {checkedCount} checked
+            </span>
+          )}
+        </span>
       </div>
 
       {filteredItems.length === 0 && (
