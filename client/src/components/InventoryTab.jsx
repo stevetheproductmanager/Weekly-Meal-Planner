@@ -167,9 +167,9 @@ function InventoryTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
-        {/* Search — full width */}
-        <div className="relative w-full">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[140px]">
           <input
             type="text"
             placeholder={`Search ${kind === 'main' ? 'mains' : 'sides'}…`}
@@ -187,45 +187,46 @@ function InventoryTab({
             </button>
           )}
         </div>
-        {/* Controls — wrap on mobile */}
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="flex-1 min-w-[100px] bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
-          >
-            <option value="az">A → Z</option>
-            <option value="za">Z → A</option>
-            <option value="newest">Newest first</option>
-            <option value="category">By category</option>
-          </select>
 
-          {allTags.length > 0 && (
-            <select
-              value={filterTag}
-              onChange={(e) => setFilterTag(e.target.value)}
-              className="flex-1 min-w-[100px] bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
-            >
-              <option value="">All tags</option>
-              {allTags.map((tag) => (
-                <option key={tag} value={tag}>{tag}</option>
-              ))}
-            </select>
-          )}
+        {/* Sort */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+        >
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+          <option value="newest">Newest first</option>
+          <option value="category">By category</option>
+        </select>
 
+        {/* Tag filter */}
+        {allTags.length > 0 && (
           <select
-            value={pageSize}
-            onChange={(e) => {
-              const val = e.target.value;
-              setPageSize(val === 'All' ? 'All' : Number(val));
-            }}
-            className="flex-1 min-w-[90px] bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+            value={filterTag}
+            onChange={(e) => setFilterTag(e.target.value)}
+            className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
           >
-            {PAGE_SIZES.map((s) => (
-              <option key={s} value={s}>{s === 'All' ? 'Show all' : `${s} / page`}</option>
+            <option value="">All tags</option>
+            {allTags.map((tag) => (
+              <option key={tag} value={tag}>{tag}</option>
             ))}
           </select>
-        </div>
+        )}
+
+        {/* Per page */}
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            const val = e.target.value;
+            setPageSize(val === 'All' ? 'All' : Number(val));
+          }}
+          className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+        >
+          {PAGE_SIZES.map((s) => (
+            <option key={s} value={s}>{s === 'All' ? 'Show all' : `${s} / page`}</option>
+          ))}
+        </select>
       </div>
 
       <div>{renderContent()}</div>

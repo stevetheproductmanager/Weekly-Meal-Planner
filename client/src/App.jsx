@@ -728,14 +728,17 @@ const handleRenameMiscItem = async (id, newName) => {
   };
 
   const ALL_TABS = [
-    { id: 'plan',      label: 'Weekly Plan',   short: 'Plan',    authRequired: false },
-    { id: 'grocery',   label: 'Grocery List',  short: 'Grocery', authRequired: false },
-    { id: 'mains',     label: 'Mains',         short: 'Mains',   authRequired: false },
-    { id: 'sides',     label: 'Sides',         short: 'Sides',   authRequired: false },
-    { id: 'misc',      label: 'Other Items',   short: 'Other',   authRequired: true  },
-    { id: 'history',   label: 'History',       short: 'History', authRequired: true  },
+    { id: 'plan',      label: 'Weekly Plan',   short: 'Plan',    authRequired: false, inTabBar: true  },
+    { id: 'grocery',   label: 'Grocery List',  short: 'Grocery', authRequired: false, inTabBar: true  },
+    { id: 'mains',     label: 'Mains',         short: 'Mains',   authRequired: false, inTabBar: true  },
+    { id: 'sides',     label: 'Sides',         short: 'Sides',   authRequired: false, inTabBar: true  },
+    { id: 'misc',      label: 'Other Items',   short: 'Other',   authRequired: true,  inTabBar: true  },
+    { id: 'history',   label: 'History',       short: 'History', authRequired: true,  inTabBar: false },
   ];
-  const TABS = ALL_TABS.filter((t) => !t.authRequired || !isGuest);
+  // TABS = shown in tab bar (desktop) and mobile hamburger menu
+  const TABS = ALL_TABS.filter((t) => t.inTabBar && (!t.authRequired || !isGuest));
+  // All accessible tabs including those only reachable via context menu
+  const ALL_ACCESSIBLE_TABS = ALL_TABS.filter((t) => !t.authRequired || !isGuest);
 
   // --- Auth gate ---
   if (authLoading) {
@@ -805,8 +808,23 @@ const handleRenameMiscItem = async (id, newName) => {
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900 z-50">
+                  <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900 z-50">
                     <div className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => { setActiveTab('history'); setUserMenuOpen(false); }}
+                        className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <span>🗂️</span>
+                          History
+                        </span>
+                        {savedPlans.length > 0 && (
+                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+                            {savedPlans.length}
+                          </span>
+                        )}
+                      </button>
                       <button
                         type="button"
                         onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
@@ -881,7 +899,7 @@ const handleRenameMiscItem = async (id, newName) => {
         {menuOpen && (
           <div className="sm:hidden border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
             <nav className="px-3 py-2 space-y-0.5">
-              {TABS.map((tab) => (
+              {ALL_ACCESSIBLE_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
@@ -941,11 +959,6 @@ const handleRenameMiscItem = async (id, newName) => {
                   }`}
               >
                 {tab.label}
-                {tab.id === 'history' && savedPlans.length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
-                    {savedPlans.length}
-                  </span>
-                )}
               </button>
             ))}
           </div>

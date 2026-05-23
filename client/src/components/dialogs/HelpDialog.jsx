@@ -16,12 +16,16 @@ const SECTIONS = [
         body: '1. Add your favourite meals to the Mains and Sides inventory.\n2. Open the Weekly Plan tab and pick up to 7 dinners.\n3. Attach sides to any dinner you like.\n4. Head to the Grocery List — every ingredient is already there.\n5. Shop once, eat well all week.',
       },
       {
-        heading: 'Your data is always saved',
-        body: 'Everything is stored on the local server automatically. Nothing is lost when you close the browser or refresh the page.',
+        heading: 'Sign in for full access',
+        body: 'Sign in with Google to unlock cloud sync, plan history, and the Other Items tab. Your data is stored securely in the cloud and available on any device.',
+      },
+      {
+        heading: 'Guest mode',
+        body: 'Don\'t want to sign in? Click "Try it free" on the landing page to browse the meal library and build a plan without an account. Your guest plan is saved in your browser. Sign in any time to sync to the cloud.',
       },
       {
         heading: 'Dark & light mode',
-        body: 'Use the Dark mode / Light mode button in the top-right corner to switch themes. Your preference is remembered.',
+        body: 'Use the theme toggle in the top-right user menu (signed in) or the icon button in the header (guest) to switch themes. Your preference is remembered.',
       },
       {
         heading: 'Pre-loaded meal library',
@@ -37,31 +41,31 @@ const SECTIONS = [
     items: [
       {
         heading: 'Adding a dinner',
-        body: 'Click the "+ Add dinner" button (or the + row in calendar view) to open the meal picker. Search or browse your Mains inventory and click a meal to add it to the plan.',
+        body: 'Click the "+ Add dinner" button (or the dashed row at the bottom of the list) to open the meal picker. Search or scroll through your Mains library and tap a meal to add it. On mobile the picker slides up from the bottom; on desktop it opens as a centred dialog.',
+      },
+      {
+        heading: 'List view vs Grid view (desktop)',
+        body: 'On desktop, use the List / Grid toggle above the plan to switch views. List view (default) shows one dinner per row with a side selector and drag handles. Grid view shows all 7 days as cards side by side.',
+      },
+      {
+        heading: 'Drag to reorder (desktop list view)',
+        body: 'Grab the ⠿ grip handle on the left of any row and drag it up or down to change which day that dinner falls on. An emerald line shows exactly where it will land. The reorder is saved automatically.',
       },
       {
         heading: 'Attaching sides',
-        body: 'Once a dinner is added, use the side dropdown on each plan entry to attach sides. You can also attach sides from the Sides tab using the link icon on any side card.',
+        body: 'Use the side dish dropdown on each plan entry to select a side and confirm with the green ✓ button. The dropdown is sorted A→Z and truncates long names to keep the layout tidy. You can also attach sides from the Sides tab using the link icon on any side card.',
       },
       {
-        heading: 'Calendar vs list view',
-        body: 'Toggle between Calendar view (a 7-column grid, best on desktop) and List view (a compact stacked layout, better on mobile) using the buttons above the plan.',
-      },
-      {
-        heading: 'Removing a dinner',
-        body: 'Click the trash icon on any plan entry to remove that meal from the week. Its ingredients will be removed from the grocery list automatically.',
-      },
-      {
-        heading: 'Saving your plan',
-        body: 'Before clearing your plan for a new week, click "Save plan" to archive it. Saved plans are stored in the History tab and can be reloaded at any time.',
-      },
-      {
-        heading: 'Clearing the plan',
-        body: 'Use the "Clear plan" button to wipe all entries and start fresh. You\'ll be asked to confirm. Tip: save the plan first if you want to keep a record.',
+        heading: 'Removing a dinner or side',
+        body: 'Click the × button on a dinner row to remove it from the plan, or the × on a side chip to detach just that side. A toast notification confirms what was removed.',
       },
       {
         heading: 'Recipe links',
-        body: 'If a meal has a recipe URL set, a book icon appears next to the meal name in the plan. Click it to open the recipe in a new tab.',
+        body: 'If a meal has a recipe URL set, a green book icon appears to the left of the meal name. Click it to open the recipe in a new tab.',
+      },
+      {
+        heading: 'Saving your plan',
+        body: 'Click "Save plan" (top-right of the Weekly Plan tab) to archive the current week. Give it a name and it\'s stored in History. Requires sign-in.',
       },
     ],
   },
@@ -85,15 +89,15 @@ const SECTIONS = [
       },
       {
         heading: 'Shopping Mode',
-        body: 'Tap the "Shopping Mode" button to enter an interactive checklist. Tap any item to check it off — it fades out so you can see what\'s left. Your checked items are remembered if you close the browser mid-shop.',
+        body: 'Tap "Shopping Mode" to enter an interactive checklist. Tap any item to check it off — it fades out so you can see what\'s left. Your checked items are remembered if you close the browser mid-shop.',
       },
       {
         heading: 'Removing items',
-        body: 'In normal mode, click the × button on any item to remove it from the list for this session. Meal-derived items will reappear if you refresh — to permanently exclude them, remove the meal from the plan or edit its ingredient list.',
+        body: 'In normal mode, click the × button on any item to hide it for this session. To permanently remove it, either remove the meal from the plan or edit its ingredient list.',
       },
       {
         heading: 'Other Items on the list',
-        body: 'Items added from the Other Items tab appear at the bottom of the grocery list under "Other Items". Remove them here or manage them on the Other Items tab.',
+        body: 'Items added from the Other Items tab appear at the bottom of the grocery list. Remove them here or manage them on the Other Items tab.',
       },
     ],
   },
@@ -117,23 +121,19 @@ const SECTIONS = [
       },
       {
         heading: 'Adding a meal to the week',
-        body: 'Click the calendar icon (📅) on any card or list row to add that meal to this week\'s plan instantly. The icon turns green when the meal is already in the plan.',
+        body: 'Click the calendar icon on any card or list row to add that meal to this week\'s plan instantly. The icon turns green when the meal is already in the plan.',
       },
       {
         heading: 'Adding your own meal',
-        body: 'Click "+ Add main" to open the dish editor. Fill in the name, category, tags, ingredients (name, quantity, unit for each), and an optional recipe URL. Click Save.',
+        body: 'Click "+ Add main" to open the dish editor. Fill in the name, category, tags, ingredients (name, quantity, unit for each), and an optional recipe URL. Custom meals are private to your account.',
       },
       {
-        heading: 'Editing a meal',
-        body: 'Click the pencil icon on any card or list row to open the editor with that meal\'s details pre-filled. Make your changes and click Save.',
-      },
-      {
-        heading: 'Deleting a meal',
-        body: 'Click the trash icon and confirm the deletion. If the meal is in your current plan, it will be removed from the plan too.',
+        heading: 'Editing & deleting',
+        body: 'Click the pencil icon to edit a meal, or the trash icon to delete it. You can only edit or delete meals you created — the pre-loaded shared library cannot be modified.',
       },
       {
         heading: 'Recipe links',
-        body: 'If a meal has a recipe URL, it will appear as a clickable link in the dish editor and as a book icon next to the meal name in the Weekly Plan.',
+        body: 'If a meal has a recipe URL, a green book icon appears to the left of the meal name in the Weekly Plan. Click it to open the recipe in a new tab.',
       },
     ],
   },
@@ -145,11 +145,11 @@ const SECTIONS = [
     items: [
       {
         heading: 'Attaching a side to a dinner',
-        body: 'Click the link icon (🔗) on any side card to open the "Attach to dinner" dialog. It shows all meals currently in your weekly plan — select one to attach the side. You can attach the same side to multiple dinners.',
+        body: 'From the Weekly Plan, use the side dropdown on any dinner row and click ✓ to attach it. Alternatively, click the link icon on any side card in the Sides tab to open the "Attach to dinner" dialog.',
       },
       {
         heading: '"In plan" badge',
-        body: 'A green "In plan" badge appears on any side that is already attached to at least one dinner this week, so you can see at a glance what\'s already planned.',
+        body: 'A green "In plan" badge appears on any side already attached to at least one dinner this week, so you can see at a glance what\'s already planned.',
       },
       {
         heading: 'Ingredients flow to grocery list',
@@ -157,7 +157,7 @@ const SECTIONS = [
       },
       {
         heading: 'Adding & editing sides',
-        body: 'Works the same as Mains — use "+ Add side", the pencil icon to edit, and the trash icon to delete.',
+        body: 'Works the same as Mains — use "+ Add side", the pencil icon to edit, and the trash icon to delete. You can only edit or delete sides you created.',
       },
     ],
   },
@@ -165,27 +165,27 @@ const SECTIONS = [
     id: 'misc',
     title: '🧺 Other Items',
     intro:
-      'A reusable inventory of non-meal grocery items — household staples, snacks, drinks, cleaning supplies, or anything else you buy regularly.',
+      'A reusable inventory of non-meal grocery items — household staples, snacks, drinks, cleaning supplies, and more. Requires sign-in.',
     items: [
       {
-        heading: 'Adding items',
-        body: 'Click "+ Add item" and type the item name. Items are saved permanently and reappear every week — you only need to add them once.',
+        heading: 'Pre-loaded items',
+        body: 'Over 40 common household items (toilet paper, dish soap, coffee, shampoo, etc.) are pre-loaded and available to all signed-in users. These shared items cannot be edited or deleted.',
+      },
+      {
+        heading: 'Adding your own items',
+        body: 'Click "+ Add item" and type the item name. Your custom items are saved permanently to your account and reappear every week — you only need to add them once.',
       },
       {
         heading: 'Adding to the grocery list',
-        body: 'Click the "+ Item" button on any card or list row to add it to this week\'s grocery list. The button changes style and an "In list" badge appears to show it\'s been added.',
+        body: 'Click the "+ Item" button on any card or list row to add it to this week\'s grocery list. The button changes style and an "In list" badge appears to confirm it\'s been added.',
       },
       {
-        heading: '"In list" badge',
-        body: 'The green "In list" badge and border shows which items are currently on your active grocery list. The badge disappears when the grocery list is cleared or the item is removed.',
-      },
-      {
-        heading: 'Editing & deleting',
-        body: 'Use the pencil icon to rename an item, or the trash icon to permanently remove it from your inventory.',
+        heading: 'Editing & deleting custom items',
+        body: 'Use the pencil icon to rename your own items, or the trash icon to permanently remove them. Edit and delete are only available on items you created, not the pre-loaded ones.',
       },
       {
         heading: 'Search & sort',
-        body: 'Use the search bar to find items by name, and the sort dropdown (A→Z, Z→A, Newest first) to order your inventory.',
+        body: 'Use the search bar to find items by name, and the sort dropdown (A→Z, Z→A, Newest first) to order the list.',
       },
     ],
   },
@@ -193,11 +193,11 @@ const SECTIONS = [
     id: 'history',
     title: '🗂️ History',
     intro:
-      'A record of your previously saved weekly plans. Never lose a good week of meals.',
+      'A record of your previously saved weekly plans. Requires sign-in — your history is synced to the cloud.',
     items: [
       {
         heading: 'Saving a plan',
-        body: 'From the Weekly Plan tab, click "Save plan", give it a name (e.g. "Week of Jan 13" or "Pasta week"), and confirm. The plan snapshot is stored here immediately.',
+        body: 'From the Weekly Plan tab, click "Save plan", give it a name (e.g. "Week of Jan 13" or "Pasta week"), and confirm. The snapshot is stored in History immediately.',
       },
       {
         heading: 'Reloading a saved plan',
@@ -210,6 +210,30 @@ const SECTIONS = [
       {
         heading: 'Tip: save before clearing',
         body: 'Get into the habit of saving your plan at the end of each week before clearing it. Over time, History becomes a personal recipe rotation you can draw from.',
+      },
+    ],
+  },
+  {
+    id: 'account',
+    title: '👤 Account & Settings',
+    intro:
+      'Manage your account, theme, and sign-out from the user menu in the top-right corner.',
+    items: [
+      {
+        heading: 'User menu (signed in)',
+        body: 'Click your avatar or name in the top-right to open the user menu. From here you can toggle Dark/Light mode, open this Help guide, or Sign out.',
+      },
+      {
+        heading: 'Signing out',
+        body: 'Open the user menu (top-right) and click "Sign out". Your cloud data is safe — everything will be there when you sign back in.',
+      },
+      {
+        heading: 'Switching from guest to signed-in',
+        body: 'Click "Sign in with Google" in the amber guest banner at the top of the page. After signing in, the shared meal library and your cloud plan are loaded. Your guest plan is not automatically transferred.',
+      },
+      {
+        heading: 'What requires sign-in',
+        body: 'Saving plans, viewing History, and the Other Items tab all require a signed-in account. Guest mode gives full read access to the meal library and lets you build and use a local plan.',
       },
     ],
   },
