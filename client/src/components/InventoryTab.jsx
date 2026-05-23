@@ -12,6 +12,7 @@ function InventoryTab({
   planEntries = [],
   planWithDetails = [],
   viewMode,
+  canEdit = true,
   onAddMainToPlan,
   onAttachSide,
   onEditDish,
@@ -72,8 +73,8 @@ function InventoryTab({
               inPlan={kind === 'main' ? mainIdsInPlan.has(dish.id) : sidesInPlanIds.has(dish.id)}
               onPrimaryAction={kind === 'main' ? () => onAddMainToPlan(dish.id) : null}
               onAttachToMeal={kind === 'side' ? () => setAttachingSide(dish) : undefined}
-              onEdit={() => onEditDish(kind, dish)}
-              onDelete={() => onDeleteDish(kind, dish)}
+              onEdit={canEdit ? () => onEditDish(kind, dish) : null}
+              onDelete={canEdit ? () => onDeleteDish(kind, dish) : null}
             />
           ))}
           {!filtered.length && (
@@ -92,8 +93,8 @@ function InventoryTab({
         inPlanIds={kind === 'main' ? mainIdsInPlan : sidesInPlanIds}
         onAddMainToPlan={onAddMainToPlan}
         onAttachSideToMeal={kind === 'side' ? (dish) => setAttachingSide(dish) : undefined}
-        onEditDish={onEditDish}
-        onDeleteDish={onDeleteDish}
+        onEditDish={canEdit ? onEditDish : null}
+        onDeleteDish={canEdit ? onDeleteDish : null}
       />
     );
   };

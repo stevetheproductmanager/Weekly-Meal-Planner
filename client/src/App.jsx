@@ -9,8 +9,10 @@ import MiscItemDialog from './components/dialogs/MiscItemDialog';
 import SavePlanDialog from './components/dialogs/SavePlanDialog';
 import HelpDialog from './components/dialogs/HelpDialog';
 import MiscItemsTab from './components/MiscItemsTab';
+import LandingPage from './components/LandingPage';
 import { ToastContainer } from './components/Toast';
 import { UtensilsIcon, SunIcon, MoonIcon, ShoppingCartIcon, MenuIcon, XIcon } from './components/Icons';
+import { useAuth } from './context/AuthContext';
 import './index.css';
 
 const API_BASE = '/api';
@@ -19,6 +21,10 @@ const makeGroceryKey = (item) =>
   `${(item.name || '').toLowerCase()}||${(item.unit || '').toLowerCase()}||${(item.category || '').toLowerCase()}`;
 
 function App() {
+  const { user, loading: authLoading, guestMode, signIn, signOut } = useAuth();
+  // isGuest = browsing without a signed-in account
+  const isGuest = !user;
+
   const [mains, setMains] = useState([]);
   const [sides, setSides] = useState([]);
   const [planEntries, setPlanEntries] = useState([]); // {id, mainId, sideIds[]}
@@ -105,43 +111,57 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // ---- Initial data load ----
+  // ---- Initial data load (runs once auth state is known) ----
   useEffect(() => {
+    if (authLoading) return; // wait for auth to resolve first
+    if (!user && !guestMode) { setLoading(false); return; } // landing page, no data needed
+
     const loadData = async () => {
       try {
         setLoading(true);
-        const [mainsRes, sidesRes, planRes, savedPlansRes] = await Promise.all([
+        // Mains + sides are public (shared library visible to all)
+        const [mainsRes, sidesRes] = await Promise.all([
           fetch(`${API_BASE}/mains`),
           fetch(`${API_BASE}/sides`),
-          fetch(`${API_BASE}/plan`),
-          fetch(`${API_BASE}/saved-plans`),
         ]);
-
-        if (!mainsRes.ok || !sidesRes.ok || !planRes.ok) {
-          throw new Error('Failed to fetch initial data');
-        }
+        if (!mainsRes.ok || !sidesRes.ok) throw new Error('Failed to fetch dishes');
 
         const mainsData = await mainsRes.json();
         const sidesData = await sidesRes.json();
-        const planData = await planRes.json();
-        if (savedPlansRes.ok) {
-          setSavedPlans(await savedPlansRes.json());
-        }
-
-        const rawEntries = planData.entries || [];
-
-        const validEntries = rawEntries
-          .map((entry) => ({
-            ...entry,
-            sideIds: (entry.sideIds || []).filter((sideId) =>
-              sidesData.some((s) => s.id === sideId),
-            ),
-          }))
-          .filter((entry) => mainsData.some((m) => m.id === entry.mainId));
-
         setMains(mainsData);
         setSides(sidesData);
-        setPlanEntries(validEntries);
+
+        if (user) {
+          // Authenticated — load plan + history from API
+          const [planRes, savedPlansRes] = await Promise.all([
+            fetch(`${API_BASE}/plan`, { credentials: 'include' }),
+            fetch(`${API_BASE}/saved-plans`, { credentials: 'include' }),
+          ]);
+          const planData = planRes.ok ? await planRes.json() : { entries: [] };
+          if (savedPlansRes.ok) setSavedPlans(await savedPlansRes.json());
+
+          const validEntries = (planData.entries || [])
+            .map((entry) => ({
+              ...entry,
+              sideIds: (entry.sideIds || []).filter((sid) => sidesData.some((s) => s.id === sid)),
+            }))
+            .filter((entry) => mainsData.some((m) => m.id === entry.mainId));
+          setPlanEntries(validEntries);
+        } else {
+          // Guest — restore plan from localStorage
+          try {
+            const stored = localStorage.getItem('simmer_guest_plan');
+            const guestEntries = stored ? JSON.parse(stored) : [];
+            const validEntries = guestEntries
+              .map((entry) => ({
+                ...entry,
+                sideIds: (entry.sideIds || []).filter((sid) => sidesData.some((s) => s.id === sid)),
+              }))
+              .filter((entry) => mainsData.some((m) => m.id === entry.mainId));
+            setPlanEntries(validEntries);
+          } catch { setPlanEntries([]); }
+        }
+
         setError('');
       } catch (err) {
         console.error(err);
@@ -152,7 +172,7 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
     };
 
     loadData();
-  }, []);
+  }, [authLoading, user, guestMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Build grocery list whenever plan changes ----
   useEffect(() => {
@@ -201,9 +221,10 @@ const [miscGroceryItems, setMiscGroceryItems] = useState(() => {
 });
 
 useEffect(() => {
+  if (!user) return; // misc items require auth
   const loadMiscInventory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/misc-items`);
+      const res = await fetch(`${API_BASE}/misc-items`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load misc items');
       const data = await res.json();
 
@@ -221,7 +242,7 @@ useEffect(() => {
   };
 
   loadMiscInventory();
-}, []);
+}, [user]);
 
 // Persist this week's misc selections locally
 useEffect(() => {
@@ -402,10 +423,16 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
   };
 
   const persistPlan = async (entries) => {
+    if (!user) {
+      // Guest — persist to localStorage only
+      try { localStorage.setItem('simmer_guest_plan', JSON.stringify(entries)); } catch {}
+      return;
+    }
     try {
       await fetch(`${API_BASE}/plan`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ entries }),
       });
     } catch (err) {
@@ -672,17 +699,45 @@ const handleRenameMiscItem = async (id, newName) => {
     setDishDialog({ open: false, mode: 'create', kind: 'main', dish: null });
   };
 
-  const TABS = [
-    { id: 'plan',      label: 'Weekly Plan',   short: 'Plan'    },
-    { id: 'grocery',   label: 'Grocery List',  short: 'Grocery' },
-    { id: 'mains',     label: 'Mains',         short: 'Mains'   },
-    { id: 'sides',     label: 'Sides',         short: 'Sides'   },
-    { id: 'misc',      label: 'Other Items',   short: 'Other'   },
-    { id: 'history',   label: 'History',       short: 'History' },
+  const ALL_TABS = [
+    { id: 'plan',      label: 'Weekly Plan',   short: 'Plan',    authRequired: false },
+    { id: 'grocery',   label: 'Grocery List',  short: 'Grocery', authRequired: false },
+    { id: 'mains',     label: 'Mains',         short: 'Mains',   authRequired: false },
+    { id: 'sides',     label: 'Sides',         short: 'Sides',   authRequired: false },
+    { id: 'misc',      label: 'Other Items',   short: 'Other',   authRequired: true  },
+    { id: 'history',   label: 'History',       short: 'History', authRequired: true  },
   ];
+  const TABS = ALL_TABS.filter((t) => !t.authRequired || !isGuest);
+
+  // --- Auth gate ---
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
+        <span className="animate-pulse text-sm">Loading…</span>
+      </div>
+    );
+  }
+
+  if (!user && !guestMode) {
+    return <LandingPage />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+
+      {/* Guest banner */}
+      {isGuest && (
+        <div className="flex items-center justify-between gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-300">
+          <span>👋 You&apos;re browsing as a guest — your plan is saved locally. Sign in to unlock history, other items, and cloud sync.</span>
+          <button
+            onClick={signIn}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+          >
+            Sign in with Google
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="relative overflow-hidden border-b border-emerald-200/70 bg-gradient-to-br from-white via-slate-50 to-emerald-50/80 shadow-sm dark:border-emerald-900/40 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/30">
         {/* Decorative orb */}
@@ -702,8 +757,31 @@ const handleRenameMiscItem = async (id, newName) => {
             </p>
           </div>
 
-          {/* Desktop: theme toggle + help */}
+          {/* Desktop: user info + theme toggle + help */}
           <div className="hidden sm:flex items-center gap-2">
+            {user ? (
+              <div className="flex items-center gap-2">
+                {user.avatar && (
+                  <img src={user.avatar} alt={user.name} className="h-7 w-7 rounded-full border border-slate-200 dark:border-slate-700" />
+                )}
+                <span className="text-xs text-slate-500 dark:text-slate-400 max-w-[120px] truncate">{user.name}</span>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="inline-flex items-center rounded-full border border-slate-200 bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm transition-all hover:border-red-300 hover:text-red-600 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={signIn}
+                className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-sm transition-all hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
+              >
+                Sign in with Google
+              </button>
+            )}
             <button
               type="button"
               onClick={toggleTheme}
@@ -863,14 +941,16 @@ const handleRenameMiscItem = async (id, newName) => {
                         List
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openCreateDishDialog(activeTab === 'mains' ? 'main' : 'side')}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:from-emerald-400 hover:to-emerald-500 hover:shadow active:translate-y-px active:shadow-none"
-                    >
-                      <span className="text-base leading-none">＋</span>
-                      Add {activeTab === 'mains' ? 'main' : 'side'}
-                    </button>
+                    {!isGuest && (
+                      <button
+                        type="button"
+                        onClick={() => openCreateDishDialog(activeTab === 'mains' ? 'main' : 'side')}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:from-emerald-400 hover:to-emerald-500 hover:shadow active:translate-y-px active:shadow-none"
+                      >
+                        <span className="text-base leading-none">＋</span>
+                        Add {activeTab === 'mains' ? 'main' : 'side'}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -881,6 +961,7 @@ const handleRenameMiscItem = async (id, newName) => {
                     planEntries={planEntries}
                     planWithDetails={planWithDetails}
                     viewMode={viewMode}
+                    canEdit={!isGuest}
                     onAddMainToPlan={handleAddMainToPlan}
                     onAttachSide={handleAttachSide}
                     onEditDish={openEditDishDialog}
@@ -978,7 +1059,7 @@ const handleRenameMiscItem = async (id, newName) => {
                   onRemoveEntry={handleRemoveEntryFromPlan}
                   onAttachSide={handleAttachSide}
                   onRemoveSide={handleRemoveSide}
-                  onSavePlan={() => setSavePlanDialogOpen(true)}
+                  onSavePlan={!isGuest ? () => setSavePlanDialogOpen(true) : null}
                 />
               </section>
             )}

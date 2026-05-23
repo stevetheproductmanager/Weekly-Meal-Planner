@@ -1,376 +1,265 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs/promises';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
+import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import './passport.js';
+import passport from 'passport';
+import authRouter from './routes/auth.js';
 
-const app = express();
+import Dish from './models/Dish.js';
+import Plan from './models/Plan.js';
+import SavedPlan from './models/SavedPlan.js';
+import MiscItem from './models/MiscItem.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+const app  = express();
 const PORT = process.env.PORT || 5000;
 
-const dataDir = path.join(__dirname, 'data');
-const mainsFile = path.join(dataDir, 'meals.json'); // treat old meals as "mains"
-const sidesFile = path.join(dataDir, 'sides.json');
-const planFile = path.join(dataDir, 'plan.json');
-const miscFile = path.join(dataDir, 'miscitem.json'); // shared misc items inventory
-const savedPlansFile = path.join(dataDir, 'saved-plans.json');
+// ---------------------------------------------------------------------------
+// Middleware
+// ---------------------------------------------------------------------------
 
-// In-memory cache for the large list files so we don't read 800 KB+ from disk on every request
-const memCache = new Map();
-
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true,
+}));
 app.use(express.json());
 
-async function ensureDataFiles() {
-  await fs.mkdir(dataDir, { recursive: true });
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'simmer-dev-secret',
+  store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI }),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  },
+}));
 
-  try {
-    await fs.access(mainsFile);
-  } catch {
-    await fs.writeFile(mainsFile, '[]', 'utf-8');
-  }
+app.use(passport.initialize());
+app.use(passport.session());
 
-  try {
-    await fs.access(sidesFile);
-  } catch {
-    await fs.writeFile(sidesFile, '[]', 'utf-8');
-  }
+// ---------------------------------------------------------------------------
+// Auth helper
+// ---------------------------------------------------------------------------
 
-  try {
-    await fs.access(planFile);
-  } catch {
-    const initialPlan = { entries: [], createdAt: new Date().toISOString() };
-    await fs.writeFile(planFile, JSON.stringify(initialPlan, null, 2), 'utf-8');
-  }
-
-  // initialize miscitem.json as an empty array if it doesn't exist
-  try {
-    await fs.access(miscFile);
-  } catch {
-    await fs.writeFile(miscFile, '[]', 'utf-8');
-  }
-
-  try {
-    await fs.access(savedPlansFile);
-  } catch {
-    await fs.writeFile(savedPlansFile, '[]', 'utf-8');
-  }
-}
-
-async function readJson(filePath) {
-  // Serve from memory cache when available (avoids re-reading large files on every request)
-  if (memCache.has(filePath)) return memCache.get(filePath);
-  const data = await fs.readFile(filePath, 'utf-8');
-  if (!data) return null;
-  const parsed = JSON.parse(data);
-  memCache.set(filePath, parsed);
-  return parsed;
-}
-
-async function writeJson(filePath, data) {
-  // Keep cache in sync so the next read is instant
-  memCache.set(filePath, data);
-  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+function requireAuth(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ message: 'Sign in required' });
 }
 
 function generateId(prefix) {
-  return (
-    prefix +
-    '_' +
-    Date.now().toString(36) +
-    '_' +
-    Math.floor(Math.random() * 10000).toString(36)
-  );
+  return `${prefix}_${Date.now().toString(36)}_${Math.floor(Math.random() * 10000).toString(36)}`;
 }
 
-// --- Helpers for misc items ---
+// ---------------------------------------------------------------------------
+// Auth routes (/auth/google, /auth/google/callback, /auth/logout)
+// ---------------------------------------------------------------------------
 
-async function getMiscItems() {
-  const data = (await readJson(miscFile)) ?? [];
-  // Support both shapes: [] or { items: [] } just in case
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data.items)) return data.items;
-  return [];
-}
+app.use('/auth', authRouter);
 
-async function saveMiscItems(items) {
-  // Store as a plain array for consistency with mains/sides
-  await writeJson(miscFile, items);
-}
-
-// --- Helpers for plan migration (from old shape) ---
-
-async function normalizePlanShape() {
-  const plan = (await readJson(planFile)) || {};
-  if (Array.isArray(plan.entries)) {
-    return plan;
+// Current user — used by the client on every load
+app.get('/api/auth/me', (req, res) => {
+  if (req.isAuthenticated()) {
+    const { _id, name, email, avatar } = req.user;
+    res.json({ user: { id: _id, name, email, avatar } });
+  } else {
+    res.json({ user: null });
   }
-  // Old shape: { meals: [mealId, ...] }
-  if (Array.isArray(plan.meals)) {
-    const entries = plan.meals.map(mealId => ({
-      id: generateId('entry'),
-      mainId: mealId,
-      sideIds: []
-    }));
-    const normalized = {
-      entries,
-      migratedFromMeals: true,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJson(planFile, normalized);
-    return normalized;
-  }
-  const empty = { entries: [], createdAt: new Date().toISOString() };
-  await writeJson(planFile, empty);
-  return empty;
-}
+});
 
-// --- CRUD for mains & sides (same shape, different files) ---
+// ---------------------------------------------------------------------------
+// Dishes — mains & sides (shared factory)
+// ---------------------------------------------------------------------------
 
-function createCrudRoutes({ basePath, file, idPrefix }) {
-  app.get(`/api/${basePath}`, async (req, res) => {
+function createDishRoutes(type) {
+  const base = type === 'main' ? 'mains' : 'sides';
+
+  // GET — public: shared library + caller's own custom dishes
+  app.get(`/api/${base}`, async (req, res) => {
     try {
-      const items = (await readJson(file)) || [];
-      res.json(items);
+      const query = { type, $or: [{ isShared: true }] };
+      if (req.isAuthenticated()) query.$or.push({ ownerId: req.user._id });
+      const dishes = await Dish.find(query).lean();
+      // Normalise _id → id for the client
+      res.json(dishes.map(normaliseId));
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: `Failed to load ${basePath}` });
+      res.status(500).json({ message: `Failed to load ${base}` });
     }
   });
 
-  app.post(`/api/${basePath}`, async (req, res) => {
+  // POST — auth required
+  app.post(`/api/${base}`, requireAuth, async (req, res) => {
     try {
       const { name, category, tags, ingredients, notes, recipeUrl } = req.body || {};
       if (!name || typeof name !== 'string') {
         return res.status(400).json({ message: 'Name is required' });
       }
-      const items = (await readJson(file)) || [];
-      const newItem = {
-        id: generateId(idPrefix),
+      const dish = await Dish.create({
+        type,
         name: name.trim(),
         category: category || '',
         tags: Array.isArray(tags) ? tags : [],
         ingredients: Array.isArray(ingredients) ? ingredients : [],
         notes: notes || '',
         recipeUrl: recipeUrl || '',
-      };
-      items.push(newItem);
-      await writeJson(file, items);
-      res.status(201).json(newItem);
+        isShared: false,
+        ownerId: req.user._id,
+      });
+      res.status(201).json(normaliseId(dish.toObject()));
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: `Failed to create in ${basePath}` });
+      res.status(500).json({ message: `Failed to create ${base}` });
     }
   });
 
-  app.put(`/api/${basePath}/:id`, async (req, res) => {
+  // PUT — auth required, must own dish
+  app.put(`/api/${base}/:id`, requireAuth, async (req, res) => {
     try {
-      const id = req.params.id;
-      const items = (await readJson(file)) || [];
-      const index = items.findIndex(m => m.id === id);
-      if (index === -1) {
-        return res.status(404).json({ message: 'Item not found' });
+      const dish = await Dish.findById(req.params.id);
+      if (!dish) return res.status(404).json({ message: 'Not found' });
+      if (!dish.ownerId || !dish.ownerId.equals(req.user._id)) {
+        return res.status(403).json({ message: 'Cannot edit a shared dish' });
       }
-      const existing = items[index];
       const { name, category, tags, ingredients, notes, recipeUrl } = req.body || {};
-      const updated = {
-        ...existing,
-        name: name !== undefined ? name : existing.name,
-        category: category !== undefined ? category : existing.category,
-        tags: tags !== undefined ? tags : existing.tags,
-        ingredients: ingredients !== undefined ? ingredients : existing.ingredients,
-        notes: notes !== undefined ? notes : existing.notes,
-        recipeUrl: recipeUrl !== undefined ? recipeUrl : (existing.recipeUrl || ''),
-      };
-      items[index] = updated;
-      await writeJson(file, items);
-      res.json(updated);
+      if (name !== undefined) dish.name = name;
+      if (category !== undefined) dish.category = category;
+      if (tags !== undefined) dish.tags = tags;
+      if (ingredients !== undefined) dish.ingredients = ingredients;
+      if (notes !== undefined) dish.notes = notes;
+      if (recipeUrl !== undefined) dish.recipeUrl = recipeUrl;
+      await dish.save();
+      res.json(normaliseId(dish.toObject()));
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: `Failed to update in ${basePath}` });
+      res.status(500).json({ message: `Failed to update ${base}` });
     }
   });
 
-  app.delete(`/api/${basePath}/:id`, async (req, res) => {
+  // DELETE — auth required, must own dish
+  app.delete(`/api/${base}/:id`, requireAuth, async (req, res) => {
     try {
-      const id = req.params.id;
-      const items = (await readJson(file)) || [];
-      const filtered = items.filter(m => m.id !== id);
-      if (filtered.length === items.length) {
-        return res.status(404).json({ message: 'Item not found' });
+      const dish = await Dish.findById(req.params.id);
+      if (!dish) return res.status(404).json({ message: 'Not found' });
+      if (!dish.ownerId || !dish.ownerId.equals(req.user._id)) {
+        return res.status(403).json({ message: 'Cannot delete a shared dish' });
       }
-      await writeJson(file, filtered);
+      await dish.deleteOne();
 
-      // Also remove from current plan if present (for mains & sides accordingly)
-      const plan = await normalizePlanShape();
-      const updatedEntries = (plan.entries || [])
-        .map(entry => ({
-          ...entry,
-          mainId: basePath === 'mains' && entry.mainId === id ? null : entry.mainId,
-          sideIds:
-            basePath === 'sides'
-              ? (entry.sideIds || []).filter(sid => sid !== id)
-              : (entry.sideIds || [])
-        }))
-        .filter(entry => entry.mainId); // drop entries without a main
-
-      if (updatedEntries.length !== (plan.entries || []).length) {
-        const updatedPlan = {
-          ...plan,
-          entries: updatedEntries,
-          updatedAt: new Date().toISOString()
-        };
-        await writeJson(planFile, updatedPlan);
+      // Remove from user's plan too
+      const plan = await Plan.findOne({ userId: req.user._id });
+      if (plan) {
+        if (type === 'main') {
+          plan.entries = plan.entries.filter(e => e.mainId !== req.params.id);
+        } else {
+          plan.entries = plan.entries.map(e => ({
+            ...e.toObject(),
+            sideIds: e.sideIds.filter(s => s !== req.params.id),
+          }));
+        }
+        plan.updatedAt = new Date();
+        await plan.save();
       }
 
       res.status(204).send();
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: `Failed to delete from ${basePath}` });
+      res.status(500).json({ message: `Failed to delete from ${base}` });
     }
   });
 }
 
-createCrudRoutes({ basePath: 'mains', file: mainsFile, idPrefix: 'main' });
-createCrudRoutes({ basePath: 'sides', file: sidesFile, idPrefix: 'side' });
+createDishRoutes('main');
+createDishRoutes('side');
 
-// --- Misc items inventory routes (shared "other items") ---
+// ---------------------------------------------------------------------------
+// Plan
+// ---------------------------------------------------------------------------
 
-app.get('/api/misc-items', async (req, res) => {
+app.get('/api/plan', requireAuth, async (req, res) => {
   try {
-    const items = await getMiscItems();
-    res.json(items);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to load misc items' });
-  }
-});
-
-app.post('/api/misc-items', async (req, res) => {
-  try {
-    const { name } = req.body || {};
-    if (!name || typeof name !== 'string') {
-      return res.status(400).json({ message: 'Name is required' });
-    }
-
-    const trimmed = name.trim();
-    if (!trimmed) {
-      return res.status(400).json({ message: 'Name is required' });
-    }
-
-    const items = await getMiscItems();
-
-    // prevent exact duplicate names (case-insensitive)
-    const existing = items.find(
-      item => item.name.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (existing) {
-      return res.status(200).json(existing);
-    }
-
-    const newItem = {
-      id: generateId('misc'),
-      name: trimmed,
-      createdAt: new Date().toISOString()
-    };
-
-    const next = [...items, newItem];
-    await saveMiscItems(next);
-
-    res.status(201).json(newItem);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to create misc item' });
-  }
-});
-
-app.delete('/api/misc-items/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const items = await getMiscItems();
-    const filtered = items.filter(item => item.id !== id);
-
-    if (filtered.length === items.length) {
-      return res.status(404).json({ message: 'Item not found' });
-    }
-
-    await saveMiscItems(filtered);
-    res.status(204).send();
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Failed to delete misc item' });
-  }
-});
-
-// --- Plan routes ---
-
-app.get('/api/plan', async (req, res) => {
-  try {
-    const plan = await normalizePlanShape();
-    res.json(plan);
+    const plan = await Plan.findOne({ userId: req.user._id }).lean();
+    res.json(plan || { entries: [] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Failed to load plan' });
   }
 });
 
-app.put('/api/plan', async (req, res) => {
+app.put('/api/plan', requireAuth, async (req, res) => {
   try {
     const { entries } = req.body || {};
     if (!Array.isArray(entries)) {
       return res.status(400).json({ message: 'entries must be an array' });
     }
-    const normalized = entries
-      .map(entry => ({
-        id: entry.id || generateId('entry'),
-        mainId: entry.mainId,
-        sideIds: Array.isArray(entry.sideIds) ? entry.sideIds : []
+    const normalised = entries
+      .map(e => ({
+        id:      e.id || generateId('entry'),
+        mainId:  e.mainId,
+        sideIds: Array.isArray(e.sideIds) ? e.sideIds : [],
       }))
-      .filter(entry => entry.mainId);
-    const plan = {
-      entries: normalized,
-      updatedAt: new Date().toISOString()
-    };
-    await writeJson(planFile, plan);
-    res.json(plan);
+      .filter(e => e.mainId);
+
+    const plan = await Plan.findOneAndUpdate(
+      { userId: req.user._id },
+      { entries: normalised, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    res.json(plan.toObject());
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Failed to save plan' });
   }
 });
 
-// --- Grocery list from mains & sides in plan ---
+// ---------------------------------------------------------------------------
+// Grocery list — no auth required (works for guests with in-body entries)
+// ---------------------------------------------------------------------------
 
 app.post('/api/grocery-list', async (req, res) => {
   try {
     let entries = req.body?.entries;
 
-    if (!Array.isArray(entries)) {
-      const plan = await normalizePlanShape();
-      entries = plan.entries || [];
+    // If authenticated and no body entries, load from their saved plan
+    if (!Array.isArray(entries) && req.isAuthenticated()) {
+      const plan = await Plan.findOne({ userId: req.user._id }).lean();
+      entries = plan?.entries || [];
     }
 
-    const [mains, sides] = await Promise.all([
-      readJson(mainsFile).then(v => v || []),
-      readJson(sidesFile).then(v => v || [])
-    ]);
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.json({ items: [] });
+    }
 
-    const mainMap = new Map(mains.map(m => [m.id, m]));
-    const sideMap = new Map(sides.map(s => [s.id, s]));
+    // Gather all dish IDs referenced
+    const mainIds = entries.map(e => e.mainId).filter(Boolean);
+    const sideIds = entries.flatMap(e => e.sideIds || []).filter(Boolean);
+    const allIds  = [...new Set([...mainIds, ...sideIds])];
+
+    // Fetch matching dishes (shared or user-owned)
+    const dishQuery = { _id: { $in: allIds } };
+    const dishes    = await Dish.find(dishQuery).lean();
+    const dishMap   = new Map(dishes.map(d => [d._id.toString(), d]));
 
     const itemsMap = new Map();
 
     for (const entry of entries) {
-      const main = mainMap.get(entry.mainId);
+      const main = dishMap.get(entry.mainId);
       const sideObjs = (entry.sideIds || [])
-        .map(id => sideMap.get(id))
+        .map(id => dishMap.get(id))
         .filter(Boolean);
 
       const allDishes = [
         ...(main ? [{ dish: main, labelSuffix: '' }] : []),
-        ...sideObjs.map(side => ({ dish: side, labelSuffix: ' (side)' }))
+        ...sideObjs.map(s => ({ dish: s, labelSuffix: ' (side)' })),
       ];
 
       for (const { dish, labelSuffix } of allDishes) {
@@ -379,25 +268,16 @@ app.post('/api/grocery-list', async (req, res) => {
           const name = (ing.name || '').trim();
           if (!name) continue;
           const unit = (ing.unit || '').trim();
-          const key = name.toLowerCase() + '||' + unit.toLowerCase();
+          const key  = name.toLowerCase() + '||' + unit.toLowerCase();
 
-          const existing = itemsMap.get(key);
-          const quantity = ing.quantity || '';
-          const category = ing.category || '';
+          const existing  = itemsMap.get(key);
+          const quantity  = ing.quantity || '';
+          const category  = ing.category || '';
 
           if (!existing) {
-            itemsMap.set(key, {
-              name,
-              unit,
-              category,
-              quantityText: quantity,
-              fromMeals: [dishName]
-            });
+            itemsMap.set(key, { name, unit, category, quantityText: quantity, fromMeals: [dishName] });
           } else {
-            const newQuantityText = [existing.quantityText, quantity]
-              .filter(Boolean)
-              .join(' + ');
-            existing.quantityText = newQuantityText;
+            existing.quantityText = [existing.quantityText, quantity].filter(Boolean).join(' + ');
             existing.fromMeals.push(dishName);
           }
         }
@@ -405,15 +285,11 @@ app.post('/api/grocery-list', async (req, res) => {
     }
 
     const items = Array.from(itemsMap.values()).sort((a, b) => {
-      const catA = (a.category || '').toLowerCase();
-      const catB = (b.category || '').toLowerCase();
-      if (catA < catB) return -1;
-      if (catA > catB) return 1;
-      const nameA = a.name.toLowerCase();
-      const nameB = b.name.toLowerCase();
-      if (nameA < nameB) return -1;
-      if (nameA > nameB) return 1;
-      return 0;
+      const ca = (a.category || '').toLowerCase();
+      const cb = (b.category || '').toLowerCase();
+      if (ca < cb) return -1;
+      if (ca > cb) return 1;
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
 
     res.json({ items });
@@ -423,105 +299,144 @@ app.post('/api/grocery-list', async (req, res) => {
   }
 });
 
-app.put('/api/misc-items/:id', async (req, res) => {
+// ---------------------------------------------------------------------------
+// Misc Items — auth required, scoped to user
+// ---------------------------------------------------------------------------
+
+app.get('/api/misc-items', requireAuth, async (req, res) => {
   try {
-    const id = req.params.id;
-    const { name } = req.body || {};
-    if (!name || typeof name !== 'string') {
-      return res.status(400).json({ message: 'Name is required' });
-    }
-
-    const items = await getMiscItems();
-    const index = items.findIndex((item) => item.id === id);
-    if (index === -1) {
-      return res.status(404).json({ message: 'Item not found' });
-    }
-
-    const updated = {
-      ...items[index],
-      name: name.trim(),
-    };
-
-    items[index] = updated;
-    await saveMiscItems(items);
-    res.json(updated);
+    const items = await MiscItem.find({ userId: req.user._id }).sort({ createdAt: 1 }).lean();
+    res.json(items.map(normaliseId));
   } catch (err) {
-    console.error(err);
+    res.status(500).json({ message: 'Failed to load misc items' });
+  }
+});
+
+app.post('/api/misc-items', requireAuth, async (req, res) => {
+  try {
+    const { name } = req.body || {};
+    if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
+    const trimmed = name.trim();
+
+    // Case-insensitive duplicate check
+    const existing = await MiscItem.findOne({
+      userId: req.user._id,
+      name: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, 'i') },
+    });
+    if (existing) return res.status(200).json(normaliseId(existing.toObject()));
+
+    const item = await MiscItem.create({ userId: req.user._id, name: trimmed });
+    res.status(201).json(normaliseId(item.toObject()));
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to create misc item' });
+  }
+});
+
+app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
+  try {
+    const { name } = req.body || {};
+    if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
+    const item = await MiscItem.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { name: name.trim() },
+      { new: true }
+    );
+    if (!item) return res.status(404).json({ message: 'Not found' });
+    res.json(normaliseId(item.toObject()));
+  } catch (err) {
     res.status(500).json({ message: 'Failed to update misc item' });
   }
 });
 
-
-// --- Saved weekly plan snapshots ---
-
-app.get('/api/saved-plans', async (req, res) => {
+app.delete('/api/misc-items/:id', requireAuth, async (req, res) => {
   try {
-    const plans = (await readJson(savedPlansFile)) || [];
-    res.json(plans);
+    const result = await MiscItem.deleteOne({ _id: req.params.id, userId: req.user._id });
+    if (result.deletedCount === 0) return res.status(404).json({ message: 'Not found' });
+    res.status(204).send();
   } catch (err) {
-    console.error(err);
+    res.status(500).json({ message: 'Failed to delete misc item' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Saved Plans — auth required, scoped to user
+// ---------------------------------------------------------------------------
+
+app.get('/api/saved-plans', requireAuth, async (req, res) => {
+  try {
+    const plans = await SavedPlan.find({ userId: req.user._id }).sort({ savedAt: -1 }).lean();
+    res.json(plans.map(normaliseId));
+  } catch (err) {
     res.status(500).json({ message: 'Failed to load saved plans' });
   }
 });
 
-app.post('/api/saved-plans', async (req, res) => {
+app.post('/api/saved-plans', requireAuth, async (req, res) => {
   try {
     const { name, entries } = req.body || {};
-    if (!name || typeof name !== 'string') {
-      return res.status(400).json({ message: 'Name is required' });
-    }
+    if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
     if (!Array.isArray(entries) || entries.length === 0) {
       return res.status(400).json({ message: 'Plan must have at least one entry' });
     }
-    const plans = (await readJson(savedPlansFile)) || [];
-    const newPlan = {
-      id: generateId('plan'),
+    const plan = await SavedPlan.create({
+      userId: req.user._id,
       name: name.trim(),
-      savedAt: new Date().toISOString(),
       entries,
-    };
-    plans.unshift(newPlan);
-    await writeJson(savedPlansFile, plans);
-    res.status(201).json(newPlan);
+    });
+    res.status(201).json(normaliseId(plan.toObject()));
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: 'Failed to save plan' });
   }
 });
 
-app.delete('/api/saved-plans/:id', async (req, res) => {
+app.delete('/api/saved-plans/:id', requireAuth, async (req, res) => {
   try {
-    const id = req.params.id;
-    const plans = (await readJson(savedPlansFile)) || [];
-    const filtered = plans.filter(p => p.id !== id);
-    if (filtered.length === plans.length) {
-      return res.status(404).json({ message: 'Plan not found' });
-    }
-    await writeJson(savedPlansFile, filtered);
+    const result = await SavedPlan.deleteOne({ _id: req.params.id, userId: req.user._id });
+    if (result.deletedCount === 0) return res.status(404).json({ message: 'Not found' });
     res.status(204).send();
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: 'Failed to delete plan' });
   }
 });
 
-// --- Startup ---
+// ---------------------------------------------------------------------------
+// Production — serve built React app
+// ---------------------------------------------------------------------------
 
-ensureDataFiles()
-  .then(async () => {
-    // Pre-warm the in-memory cache for the large list files so the first
-    // request is served from RAM rather than triggering a cold disk read.
-    await Promise.all([
-      readJson(mainsFile).catch(() => null),
-      readJson(sidesFile).catch(() => null),
-    ]);
-    console.log('✅ Data cache warmed (mains + sides loaded into memory)');
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.join(__dirname, '../client/dist');
+  app.use(express.static(clientDist));
+  // Any non-API route serves index.html (React handles routing)
+  app.get(/^(?!\/api|\/auth).*$/, (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
-    app.listen(PORT, () => {
-      console.log(`Meal planner API listening on port ${PORT}`);
-    });
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function normaliseId(doc) {
+  if (!doc) return doc;
+  const { _id, __v, ...rest } = doc;
+  return { id: _id.toString(), ...rest };
+}
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
+
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+    app.listen(PORT, () => console.log(`🚀 Simmer API on port ${PORT}`));
   })
   .catch(err => {
-    console.error('Failed to initialize data files', err);
+    console.error('❌ MongoDB connection failed:', err.message);
     process.exit(1);
   });
