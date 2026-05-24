@@ -92,13 +92,17 @@ app.get('/api/auth/me', (req, res) => {
 function createDishRoutes(type) {
   const base = type === 'main' ? 'mains' : 'sides';
 
-  // GET — public: shared library + caller's own custom dishes
+  // GET — public: admin sees all; signed-in users see shared+community+own; guests see shared only
   app.get(`/api/${base}`, async (req, res) => {
     try {
-      const query = { type, $or: [{ isShared: true }] };
-      if (req.isAuthenticated()) query.$or.push({ ownerId: req.user._id });
+      let query;
+      if (isAdminUser(req)) {
+        query = { type }; // admin sees every dish
+      } else {
+        query = { type, $or: [{ isShared: true }] };
+        if (req.isAuthenticated()) query.$or.push({ ownerId: req.user._id });
+      }
       const dishes = await Dish.find(query).lean();
-      // Normalise _id → id for the client
       res.json(dishes.map(normaliseId));
     } catch (err) {
       console.error(err);
@@ -314,9 +318,13 @@ app.post('/api/grocery-list', async (req, res) => {
 
 app.get('/api/misc-items', async (req, res) => {
   try {
-    // Return shared/default items + community items + user's own custom items, sorted by name
-    const query = { $or: [{ isShared: true }] };
-    if (req.isAuthenticated()) query.$or.push({ userId: req.user._id });
+    let query;
+    if (isAdminUser(req)) {
+      query = {}; // admin sees every misc item
+    } else {
+      query = { $or: [{ isShared: true }] };
+      if (req.isAuthenticated()) query.$or.push({ userId: req.user._id });
+    }
     const items = await MiscItem.find(query).sort({ name: 1 }).lean();
     res.json(items.map(normaliseId));
   } catch (err) {
@@ -337,7 +345,7 @@ app.post('/api/misc-items', requireAuth, async (req, res) => {
     });
     if (existing) return res.status(200).json(normaliseId(existing.toObject()));
 
-    const item = await MiscItem.create({ userId: req.user._id, name: trimmed, isShared: false });
+    const item = await MiscItem.create({ userId: req.user._id, name: trimmed, isShared: true });
     res.status(201).json(normaliseId(item.toObject()));
   } catch (err) {
     res.status(500).json({ message: 'Failed to create misc item' });
@@ -350,16 +358,13 @@ app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
     if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
 
     const admin = isAdminUser(req);
-    // Admin: can edit any item (claims shared items as user-owned on save)
-    // Regular user: can only edit their own non-shared items
+    // Admin: can edit any item, name only (keeps isShared/userId intact)
+    // Regular user: can only edit items they own (userId matches)
     const filter = admin
       ? { _id: req.params.id }
-      : { _id: req.params.id, userId: req.user._id, isShared: false };
-    const update = admin
-      ? { name: name.trim(), isShared: false, userId: req.user._id }
-      : { name: name.trim() };
+      : { _id: req.params.id, userId: req.user._id };
 
-    const item = await MiscItem.findOneAndUpdate(filter, update, { new: true });
+    const item = await MiscItem.findOneAndUpdate(filter, { name: name.trim() }, { new: true });
     if (!item) return res.status(admin ? 404 : 403).json({ message: admin ? 'Not found' : 'Cannot edit this item' });
     res.json(normaliseId(item.toObject()));
   } catch (err) {
@@ -370,10 +375,10 @@ app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
 app.delete('/api/misc-items/:id', requireAuth, async (req, res) => {
   try {
     const admin = isAdminUser(req);
-    // Admin: can delete any item; regular user: can only delete their own non-shared items
+    // Admin: can delete any item; regular user: can only delete items they own
     const filter = admin
       ? { _id: req.params.id }
-      : { _id: req.params.id, userId: req.user._id, isShared: false };
+      : { _id: req.params.id, userId: req.user._id };
 
     const result = await MiscItem.deleteOne(filter);
     if (result.deletedCount === 0) return res.status(admin ? 404 : 403).json({ message: admin ? 'Not found' : 'Cannot delete this item' });
@@ -444,7 +449,12 @@ if (process.env.NODE_ENV === 'production') {
 function normaliseId(doc) {
   if (!doc) return doc;
   const { _id, __v, ...rest } = doc;
-  return { id: _id.toString(), ...rest };
+  const out = { id: _id.toString(), ...rest };
+  // Explicitly convert ObjectId reference fields to plain strings so the client
+  // can do reliable === comparisons against user.id (also a plain string).
+  if (out.ownerId != null) out.ownerId = out.ownerId.toString();
+  if (out.userId  != null) out.userId  = out.userId.toString();
+  return out;
 }
 
 function escapeRegex(str) {
