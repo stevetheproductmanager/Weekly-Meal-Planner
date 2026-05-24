@@ -72,7 +72,7 @@ export function Toast({ id, message, type = 'info', onDismiss }) {
 export function ToastContainer({ toasts, onDismiss }) {
   if (!toasts.length) return null;
   return (
-    <div className="fixed bottom-5 right-5 z-[200] flex w-80 flex-col gap-2 pointer-events-none">
+    <div className="hidden sm:flex fixed bottom-5 right-5 z-[200] w-80 flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto">
           <Toast {...t} onDismiss={onDismiss} />
