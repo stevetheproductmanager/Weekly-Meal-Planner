@@ -1061,7 +1061,7 @@ const handleRenameMiscItem = async (id, newName) => {
                     planEntries={planEntries}
                     planWithDetails={planWithDetails}
                     viewMode={viewMode}
-                    canEditDish={isGuest ? null : (dish) => isAdmin || (!!dish.ownerId && dish.ownerId === user?.id)}
+                    canEditDish={isGuest ? null : (dish) => dish.canEdit === true}
                     onAddMainToPlan={handleAddMainToPlan}
                     onAttachSide={handleAttachSide}
                     onEditDish={openEditDishDialog}
@@ -1074,7 +1074,7 @@ const handleRenameMiscItem = async (id, newName) => {
                 <MiscItemsTab
                   items={miscInventory}
                   activeGroceryInventoryIds={new Set(miscGroceryItems.map((i) => i.inventoryId))}
-                  canEditItem={isGuest ? () => false : (item) => isAdmin || (!!item.userId && item.userId === user?.id)}
+                  canEditItem={isGuest ? () => false : (item) => item.canEdit === true}
                   onAddToGrocery={handleAddMiscFromInventory}
                   onDeleteItem={isGuest ? null : handleDeleteMiscInventoryItem}
                   onOpenMiscDialog={isGuest ? null : openMiscDialog}

@@ -65,6 +65,18 @@ function isAdminUser(req) {
   return !!(adminEmail && req.isAuthenticated() && req.user?.email === adminEmail);
 }
 
+/**
+ * Server-authoritative edit permission.
+ * ownerIdField: the raw ObjectId from the lean document (ownerId or userId).
+ * Returns true only if the requester is admin, or owns the item.
+ */
+function canEditItem(ownerIdField, req) {
+  if (!req.isAuthenticated()) return false;
+  if (isAdminUser(req)) return true;
+  if (!ownerIdField) return false;
+  return ownerIdField.equals(req.user._id);
+}
+
 function generateId(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.floor(Math.random() * 10000).toString(36)}`;
 }
@@ -92,18 +104,20 @@ app.get('/api/auth/me', (req, res) => {
 function createDishRoutes(type) {
   const base = type === 'main' ? 'mains' : 'sides';
 
-  // GET — public: admin sees all; signed-in users see shared+community+own; guests see shared only
+  // GET — public: admin sees all; everyone else sees library (isShared:true) + all community
+  //        dishes (ownerId set, regardless of isShared — catches legacy isShared:false records)
   app.get(`/api/${base}`, async (req, res) => {
     try {
       let query;
       if (isAdminUser(req)) {
-        query = { type }; // admin sees every dish
+        query = { type };
       } else {
-        query = { type, $or: [{ isShared: true }] };
-        if (req.isAuthenticated()) query.$or.push({ ownerId: req.user._id });
+        // isShared:true  → default library dishes
+        // ownerId != null → community dishes (new isShared:true AND legacy isShared:false)
+        query = { type, $or: [{ isShared: true }, { ownerId: { $ne: null } }] };
       }
       const dishes = await Dish.find(query).lean();
-      res.json(dishes.map(normaliseId));
+      res.json(dishes.map(d => ({ ...normaliseId(d), canEdit: canEditItem(d.ownerId, req) })));
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: `Failed to load ${base}` });
@@ -128,7 +142,8 @@ function createDishRoutes(type) {
         isShared: true,   // community dishes are visible to all users
         ownerId: req.user._id,
       });
-      res.status(201).json(normaliseId(dish.toObject()));
+      const obj = dish.toObject();
+      res.status(201).json({ ...normaliseId(obj), canEdit: canEditItem(obj.ownerId, req) });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: `Failed to create ${base}` });
@@ -151,7 +166,8 @@ function createDishRoutes(type) {
       if (notes !== undefined) dish.notes = notes;
       if (recipeUrl !== undefined) dish.recipeUrl = recipeUrl;
       await dish.save();
-      res.json(normaliseId(dish.toObject()));
+      const saved = dish.toObject();
+      res.json({ ...normaliseId(saved), canEdit: canEditItem(saved.ownerId, req) });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: `Failed to update ${base}` });
@@ -320,13 +336,12 @@ app.get('/api/misc-items', async (req, res) => {
   try {
     let query;
     if (isAdminUser(req)) {
-      query = {}; // admin sees every misc item
+      query = {};
     } else {
-      query = { $or: [{ isShared: true }] };
-      if (req.isAuthenticated()) query.$or.push({ userId: req.user._id });
+      query = { $or: [{ isShared: true }, { userId: { $ne: null } }] };
     }
     const items = await MiscItem.find(query).sort({ name: 1 }).lean();
-    res.json(items.map(normaliseId));
+    res.json(items.map(d => ({ ...normaliseId(d), canEdit: canEditItem(d.userId, req) })));
   } catch (err) {
     res.status(500).json({ message: 'Failed to load misc items' });
   }
@@ -343,10 +358,14 @@ app.post('/api/misc-items', requireAuth, async (req, res) => {
       $or: [{ isShared: true }, { userId: req.user._id }],
       name: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, 'i') },
     });
-    if (existing) return res.status(200).json(normaliseId(existing.toObject()));
+    if (existing) {
+      const e = existing.toObject();
+      return res.status(200).json({ ...normaliseId(e), canEdit: canEditItem(e.userId, req) });
+    }
 
     const item = await MiscItem.create({ userId: req.user._id, name: trimmed, isShared: true });
-    res.status(201).json(normaliseId(item.toObject()));
+    const created = item.toObject();
+    res.status(201).json({ ...normaliseId(created), canEdit: canEditItem(created.userId, req) });
   } catch (err) {
     res.status(500).json({ message: 'Failed to create misc item' });
   }
@@ -366,7 +385,8 @@ app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
 
     const item = await MiscItem.findOneAndUpdate(filter, { name: name.trim() }, { new: true });
     if (!item) return res.status(admin ? 404 : 403).json({ message: admin ? 'Not found' : 'Cannot edit this item' });
-    res.json(normaliseId(item.toObject()));
+    const updated = item.toObject();
+    res.json({ ...normaliseId(updated), canEdit: canEditItem(updated.userId, req) });
   } catch (err) {
     res.status(500).json({ message: 'Failed to update misc item' });
   }
