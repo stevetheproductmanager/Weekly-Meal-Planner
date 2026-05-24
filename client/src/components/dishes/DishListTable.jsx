@@ -103,22 +103,26 @@ function DishListTable({
                       <CalendarPlusIcon />
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
-                    title="Edit"
-                    onClick={() => onEditDish(kind, dish)}
-                  >
-                    <PencilIcon />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
-                    title="Delete"
-                    onClick={() => onDeleteDish(kind, dish)}
-                  >
-                    <TrashIcon />
-                  </button>
+                  {onEditDish && (
+                    <button
+                      type="button"
+                      className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
+                      title="Edit"
+                      onClick={() => onEditDish(kind, dish)}
+                    >
+                      <PencilIcon />
+                    </button>
+                  )}
+                  {onDeleteDish && (
+                    <button
+                      type="button"
+                      className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
+                      title="Delete"
+                      onClick={() => onDeleteDish(kind, dish)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

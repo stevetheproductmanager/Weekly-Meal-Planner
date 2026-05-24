@@ -11,7 +11,7 @@ import HelpDialog from './components/dialogs/HelpDialog';
 import MiscItemsTab from './components/MiscItemsTab';
 import LandingPage from './components/LandingPage';
 import { ToastContainer } from './components/Toast';
-import { UtensilsIcon, SunIcon, MoonIcon, ShoppingCartIcon, MenuIcon, XIcon, ChevronDownIcon } from './components/Icons';
+import { UtensilsIcon, SunIcon, MoonIcon, ShoppingCartIcon, MenuIcon, XIcon, ChevronDownIcon, CalendarIcon, BowlIcon, PackageIcon } from './components/Icons';
 import { useAuth } from './context/AuthContext';
 import './index.css';
 
@@ -728,12 +728,12 @@ const handleRenameMiscItem = async (id, newName) => {
   };
 
   const ALL_TABS = [
-    { id: 'plan',      label: 'Weekly Plan',   short: 'Plan',    authRequired: false, inTabBar: true  },
-    { id: 'grocery',   label: 'Grocery List',  short: 'Grocery', authRequired: false, inTabBar: true  },
-    { id: 'mains',     label: 'Mains',         short: 'Mains',   authRequired: false, inTabBar: true  },
-    { id: 'sides',     label: 'Sides',         short: 'Sides',   authRequired: false, inTabBar: true  },
-    { id: 'misc',      label: 'Other Items',   short: 'Other',   authRequired: true,  inTabBar: true  },
-    { id: 'history',   label: 'History',       short: 'History', authRequired: true,  inTabBar: false },
+    { id: 'plan',    label: 'Weekly Plan',  short: 'Plan',    icon: <CalendarIcon size={20} />,     authRequired: false, inTabBar: true  },
+    { id: 'grocery', label: 'Grocery List', short: 'Grocery', icon: <ShoppingCartIcon size={20} />, authRequired: false, inTabBar: true  },
+    { id: 'mains',   label: 'Mains',        short: 'Mains',   icon: <UtensilsIcon size={20} />,     authRequired: false, inTabBar: true  },
+    { id: 'sides',   label: 'Sides',        short: 'Sides',   icon: <BowlIcon size={20} />,         authRequired: false, inTabBar: true  },
+    { id: 'misc',    label: 'Other Items',  short: 'Other',   icon: <PackageIcon size={20} />,      authRequired: true,  inTabBar: true  },
+    { id: 'history', label: 'History',      short: 'History', icon: null,                           authRequired: true,  inTabBar: false },
   ];
   // TABS = shown in tab bar (desktop) and mobile hamburger menu
   const TABS = ALL_TABS.filter((t) => t.inTabBar && (!t.authRequired || !isGuest));
@@ -895,30 +895,31 @@ const handleRenameMiscItem = async (id, newName) => {
           </button>
         </div>
 
-        {/* Mobile dropdown menu */}
+        {/* Mobile dropdown menu — secondary actions only (tabs are in the bottom nav) */}
         {menuOpen && (
           <div className="sm:hidden border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-            <nav className="px-3 py-2 space-y-0.5">
-              {ALL_ACCESSIBLE_TABS.map((tab) => (
+            {/* History — signed-in users only */}
+            {user && (
+              <div className="px-3 pt-2 pb-1">
                 <button
-                  key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
+                  type="button"
+                  onClick={() => { setActiveTab('history'); setMenuOpen(false); }}
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    activeTab === tab.id
+                    activeTab === 'history'
                       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400'
                       : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900/60'
                   }`}
                 >
-                  <span>{tab.label}</span>
-                  {tab.id === 'history' && savedPlans.length > 0 && (
+                  <span className="flex items-center gap-2"><span>🗂️</span> History</span>
+                  {savedPlans.length > 0 && (
                     <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
                       {savedPlans.length}
                     </span>
                   )}
                 </button>
-              ))}
-            </nav>
-            <div className="border-t border-slate-100 px-3 py-2 dark:border-slate-800">
+              </div>
+            )}
+            <div className={`px-3 py-2 space-y-0.5 ${user ? 'border-t border-slate-100 dark:border-slate-800' : ''}`}>
               <button
                 type="button"
                 onClick={() => { toggleTheme(); setMenuOpen(false); }}
@@ -939,12 +940,31 @@ const handleRenameMiscItem = async (id, newName) => {
                 {planWithDetails.length} / 7 dinners planned
               </p>
             </div>
+            <div className="border-t border-slate-100 px-3 py-2 dark:border-slate-800">
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => { signOut(); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                >
+                  Sign out
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { signIn(); setMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                >
+                  Sign in with Google
+                </button>
+              )}
+            </div>
           </div>
         )}
       </header>
 
       {/* Main content shell */}
-      <div className="flex-1 w-full px-4 sm:px-6 py-4 sm:py-5 flex flex-col gap-5">
+      <div className="flex-1 w-full px-4 sm:px-6 pt-4 sm:pt-5 pb-24 sm:pb-5 flex flex-col gap-5">
         {/* Desktop tabs */}
         <nav className="hidden sm:flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center -mb-px overflow-x-auto scrollbar-none">
@@ -1219,6 +1239,32 @@ const handleRenameMiscItem = async (id, newName) => {
   />
 )}
 
+
+      {/* Mobile bottom navigation bar */}
+      <nav
+        className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="flex h-16">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors active:bg-slate-50 dark:active:bg-slate-900 ${
+                activeTab === tab.id
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-slate-400 dark:text-slate-500'
+              }`}
+            >
+              <span className={`transition-transform ${activeTab === tab.id ? 'scale-110' : ''}`}>
+                {tab.icon}
+              </span>
+              <span className="text-[10px] font-medium">{tab.short}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 

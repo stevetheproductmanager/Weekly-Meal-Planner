@@ -41,7 +41,7 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
               type="button"
               onClick={onAttachToMeal}
               title={inPlan ? 'Attach to another dinner' : 'Attach to a dinner'}
-              className={`inline-flex h-7 w-7 items-center justify-center rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors ${
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors ${
                 inPlan
                   ? 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-900/30'
                   : 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/30'
@@ -56,7 +56,7 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
               onClick={onPrimaryAction}
               disabled={inPlan}
               title={inPlan ? 'Already in plan' : 'Add to week'}
-              className={`inline-flex h-7 w-7 items-center justify-center rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors ${
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors ${
                 inPlan
                   ? 'text-emerald-500 dark:text-emerald-400 cursor-default opacity-60'
                   : 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/30'
@@ -65,22 +65,26 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
               <CalendarPlusIcon />
             </button>
           )}
-          <button
-            type="button"
-            className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
-            title="Edit"
-            onClick={onEdit}
-          >
-            <PencilIcon />
-          </button>
-          <button
-            type="button"
-            className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
-            title="Delete"
-            onClick={onDelete}
-          >
-            <TrashIcon />
-          </button>
+          {onEdit && (
+            <button
+              type="button"
+              className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
+              title="Edit"
+              onClick={onEdit}
+            >
+              <PencilIcon />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
+              title="Delete"
+              onClick={onDelete}
+            >
+              <TrashIcon />
+            </button>
+          )}
         </div>
       </div>
 

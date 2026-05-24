@@ -289,10 +289,21 @@ function HelpDialog({ onClose }) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[5vh] overflow-y-auto"
+      className="fixed inset-0 z-50 flex flex-col justify-end sm:items-start sm:justify-center bg-black/50 backdrop-blur-sm sm:p-4 sm:pt-[5vh] sm:overflow-y-auto"
       onMouseDown={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onTouchEnd={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:shadow-black/60 flex flex-col max-h-[88vh]">
+      <div
+        className="relative w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:shadow-black/60 flex flex-col"
+        style={{ maxHeight: '92dvh' }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
+
+        {/* Mobile drag handle */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
+        </div>
 
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
@@ -333,7 +344,7 @@ function HelpDialog({ onClose }) {
         </div>
 
         {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-7">
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-7" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}>
           {visibleSections.length === 0 && (
             <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">
               No help topics match &ldquo;{search}&rdquo;.

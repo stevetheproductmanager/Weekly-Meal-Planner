@@ -146,7 +146,7 @@ function MobileListItem({ entry, index, allSides, onRemoveEntry, onAttachSide, o
                   <span key={side.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 min-w-0 max-w-full">
                     <span className="truncate max-w-[180px]">{side.name}</span>
                     <button type="button" onClick={() => onRemoveSide(entry.id, side.id)}
-                      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-red-300 hover:bg-red-900/40 focus:outline-none">
+                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-red-300 hover:bg-red-900/40 focus:outline-none">
                       <XIcon size={10} />
                     </button>
                   </span>
@@ -512,13 +512,18 @@ function DishPicker({ allMains, planEntries, nextDay, nextDayIndex, onAdd, onClo
   return (
     /* Mobile: flex-col justify-end = bottom sheet. Desktop: centered modal */
     <div
-      className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center bg-slate-950/60 backdrop-blur-sm px-4 pb-4 sm:px-6 sm:pb-0"
+      className="fixed inset-0 z-50 flex flex-col justify-end sm:items-center sm:justify-center bg-slate-950/60 backdrop-blur-sm px-0 pb-0 sm:px-6 sm:pb-0"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
+      onTouchEnd={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full sm:max-w-xl flex flex-col max-h-[85vh] sm:max-h-[600px] rounded-2xl sm:rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 overflow-hidden">
+      <div
+        className="w-full sm:max-w-xl flex flex-col max-h-[85dvh] sm:max-h-[600px] rounded-t-2xl sm:rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 overflow-hidden"
+        onMouseDown={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
+      >
 
         {/* Mobile drag handle */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+        <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0 bg-white dark:bg-slate-900">
           <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
         </div>
 
@@ -539,7 +544,10 @@ function DishPicker({ allMains, planEntries, nextDay, nextDayIndex, onAdd, onClo
         </div>
 
         {/* Results — scrollable */}
-        <ul className="overflow-y-auto overflow-x-hidden flex-1 divide-y divide-slate-100 dark:divide-slate-800">
+        <ul
+          className="overflow-y-auto overflow-x-hidden flex-1 divide-y divide-slate-100 dark:divide-slate-800"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           {available.length === 0 && (
             <li className="px-4 py-4 text-sm text-slate-400 dark:text-slate-500">
               {search ? 'No dishes match.' : 'All mains are already in the plan.'}
