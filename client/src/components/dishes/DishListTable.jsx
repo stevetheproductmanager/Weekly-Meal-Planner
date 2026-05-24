@@ -5,6 +5,7 @@ function DishListTable({
   kind,
   dishes = [],
   inPlanIds = new Set(),
+  canEditDish = null, // (dish) => bool
   onAddMainToPlan,
   onAttachSideToMeal,
   onEditDish,
@@ -46,6 +47,10 @@ function DishListTable({
               <td className="px-3 py-2 align-top text-slate-900 dark:text-slate-100">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span>{dish.name}</span>
+                  {dish.ownerId
+                    ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
+                    : <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800/80 dark:text-slate-500">Default</span>
+                  }
                   {dish.recipeUrl && (
                     <a
                       href={dish.recipeUrl}
@@ -103,7 +108,7 @@ function DishListTable({
                       <CalendarPlusIcon />
                     </button>
                   )}
-                  {onEditDish && (
+                  {onEditDish && canEditDish?.(dish) && (
                     <button
                       type="button"
                       className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
@@ -113,7 +118,7 @@ function DishListTable({
                       <PencilIcon />
                     </button>
                   )}
-                  {onDeleteDish && (
+                  {onDeleteDish && canEditDish?.(dish) && (
                     <button
                       type="button"
                       className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"

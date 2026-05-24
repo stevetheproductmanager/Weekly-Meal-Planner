@@ -17,6 +17,10 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
                 {dish.category}
               </span>
             )}
+            {dish.ownerId
+              ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
+              : <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800/80 dark:text-slate-500">Default</span>
+            }
             {dish.recipeUrl && (
               <a
                 href={dish.recipeUrl}

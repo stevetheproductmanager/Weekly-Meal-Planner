@@ -24,6 +24,8 @@ function App() {
   const { user, loading: authLoading, guestMode, signIn, signOut } = useAuth();
   // isGuest = browsing without a signed-in account
   const isGuest = !user;
+  // isAdmin = signed-in user is the designated admin
+  const isAdmin = user?.isAdmin === true;
 
   const [mains, setMains] = useState([]);
   const [sides, setSides] = useState([]);
@@ -235,7 +237,6 @@ const [miscGroceryItems, setMiscGroceryItems] = useState(() => {
 });
 
 useEffect(() => {
-  if (!user) return; // misc items require auth
   const loadMiscInventory = async () => {
     try {
       const res = await fetch(`${API_BASE}/misc-items`, { credentials: 'include' });
@@ -732,7 +733,7 @@ const handleRenameMiscItem = async (id, newName) => {
     { id: 'grocery', label: 'Grocery List', short: 'Grocery', icon: <ShoppingCartIcon size={20} />, authRequired: false, inTabBar: true  },
     { id: 'mains',   label: 'Mains',        short: 'Mains',   icon: <UtensilsIcon size={20} />,     authRequired: false, inTabBar: true  },
     { id: 'sides',   label: 'Sides',        short: 'Sides',   icon: <BowlIcon size={20} />,         authRequired: false, inTabBar: true  },
-    { id: 'misc',    label: 'Other Items',  short: 'Other',   icon: <PackageIcon size={20} />,      authRequired: true,  inTabBar: true  },
+    { id: 'misc',    label: 'Other Items',  short: 'Other',   icon: <PackageIcon size={20} />,      authRequired: false, inTabBar: true  },
     { id: 'history', label: 'History',      short: 'History', icon: null,                           authRequired: true,  inTabBar: false },
   ];
   // TABS = shown in tab bar (desktop) and mobile hamburger menu
@@ -1060,7 +1061,7 @@ const handleRenameMiscItem = async (id, newName) => {
                     planEntries={planEntries}
                     planWithDetails={planWithDetails}
                     viewMode={viewMode}
-                    canEdit={!isGuest}
+                    canEditDish={isGuest ? null : (dish) => isAdmin || (!!dish.ownerId && dish.ownerId === user?.id)}
                     onAddMainToPlan={handleAddMainToPlan}
                     onAttachSide={handleAttachSide}
                     onEditDish={openEditDishDialog}
@@ -1073,9 +1074,10 @@ const handleRenameMiscItem = async (id, newName) => {
                 <MiscItemsTab
                   items={miscInventory}
                   activeGroceryInventoryIds={new Set(miscGroceryItems.map((i) => i.inventoryId))}
+                  canEditItem={isGuest ? () => false : (item) => isAdmin || (!!item.userId && item.userId === user?.id)}
                   onAddToGrocery={handleAddMiscFromInventory}
-                  onDeleteItem={handleDeleteMiscInventoryItem}
-                  onOpenMiscDialog={openMiscDialog}
+                  onDeleteItem={isGuest ? null : handleDeleteMiscInventoryItem}
+                  onOpenMiscDialog={isGuest ? null : openMiscDialog}
                 />
               </section>
             ) : activeTab === 'history' ? (

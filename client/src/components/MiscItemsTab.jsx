@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PencilIcon, TrashIcon, XIcon } from './Icons';
 
-function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGrocery, onDeleteItem, onOpenMiscDialog }) {
+function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), canEditItem = () => true, onAddToGrocery, onDeleteItem, onOpenMiscDialog }) {
   const safeItems = Array.isArray(items) ? items : [];
   const [viewMode, setViewMode] = useState('cards');
   const [search, setSearch] = useState('');
@@ -54,6 +54,10 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
                 <td className="px-3 py-2 align-middle text-slate-900 dark:text-slate-100">
                   <div className="flex items-center gap-2">
                     {item.name}
+                    {item.userId
+                      ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
+                      : <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800/80 dark:text-slate-500">Default</span>
+                    }
                     {inList && (
                       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                         In list
@@ -63,20 +67,20 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
                 </td>
                 <td className="px-3 py-2 align-middle">
                   <div className="flex items-center justify-end gap-2">
-                    {!item.isShared && (
+                    {canEditItem(item) && (
                       <button
                         type="button"
-                        className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
+                        className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
                         title="Edit item"
                         onClick={() => handleEditClick(item)}
                       >
                         <PencilIcon />
                       </button>
                     )}
-                    {onDeleteItem && !item.isShared && (
+                    {onDeleteItem && canEditItem(item) && (
                       <button
                         type="button"
-                        className="icon-button danger inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
+                        className="icon-button danger inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
                         title="Delete item"
                         onClick={() => onDeleteItem(item.id)}
                       >
@@ -124,27 +128,33 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), onAddToGro
                 <div className="text-sm font-medium text-slate-900 dark:text-slate-50 break-words">
                   {item.name}
                 </div>
-                {inList && (
-                  <span className="mt-1 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
-                    In list
-                  </span>
-                )}
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {item.userId
+                    ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
+                    : <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800/80 dark:text-slate-500">Default</span>
+                  }
+                  {inList && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                      In list
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {!item.isShared && (
+                {canEditItem(item) && (
                   <button
                     type="button"
-                    className="icon-button subtle inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
+                    className="icon-button subtle inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-50 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
                     title="Edit item"
                     onClick={() => handleEditClick(item)}
                   >
                     <PencilIcon />
                   </button>
                 )}
-                {onDeleteItem && !item.isShared && (
+                {onDeleteItem && canEditItem(item) && (
                   <button
                     type="button"
-                    className="icon-button danger inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
+                    className="icon-button danger inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-red-200 hover:bg-red-900/40 focus:outline-none focus:ring-1 focus:ring-red-500/60"
                     title="Delete item"
                     onClick={() => onDeleteItem(item.id)}
                   >

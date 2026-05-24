@@ -51,12 +51,18 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // ---------------------------------------------------------------------------
-// Auth helper
+// Auth helpers
 // ---------------------------------------------------------------------------
 
 function requireAuth(req, res, next) {
   if (req.isAuthenticated()) return next();
   res.status(401).json({ message: 'Sign in required' });
+}
+
+/** Returns true if the signed-in user is the designated admin. */
+function isAdminUser(req) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  return !!(adminEmail && req.isAuthenticated() && req.user?.email === adminEmail);
 }
 
 function generateId(prefix) {
@@ -73,7 +79,7 @@ app.use('/auth', authRouter);
 app.get('/api/auth/me', (req, res) => {
   if (req.isAuthenticated()) {
     const { _id, name, email, avatar } = req.user;
-    res.json({ user: { id: _id, name, email, avatar } });
+    res.json({ user: { id: _id, name, email, avatar, isAdmin: isAdminUser(req) } });
   } else {
     res.json({ user: null });
   }
@@ -115,7 +121,7 @@ function createDishRoutes(type) {
         ingredients: Array.isArray(ingredients) ? ingredients : [],
         notes: notes || '',
         recipeUrl: recipeUrl || '',
-        isShared: false,
+        isShared: true,   // community dishes are visible to all users
         ownerId: req.user._id,
       });
       res.status(201).json(normaliseId(dish.toObject()));
@@ -125,12 +131,12 @@ function createDishRoutes(type) {
     }
   });
 
-  // PUT — auth required, must own dish
+  // PUT — auth required; admin can edit any dish, others must own it
   app.put(`/api/${base}/:id`, requireAuth, async (req, res) => {
     try {
       const dish = await Dish.findById(req.params.id);
       if (!dish) return res.status(404).json({ message: 'Not found' });
-      if (!dish.ownerId || !dish.ownerId.equals(req.user._id)) {
+      if (!isAdminUser(req) && (!dish.ownerId || !dish.ownerId.equals(req.user._id))) {
         return res.status(403).json({ message: 'Cannot edit a shared dish' });
       }
       const { name, category, tags, ingredients, notes, recipeUrl } = req.body || {};
@@ -148,12 +154,12 @@ function createDishRoutes(type) {
     }
   });
 
-  // DELETE — auth required, must own dish
+  // DELETE — auth required; admin can delete any dish, others must own it
   app.delete(`/api/${base}/:id`, requireAuth, async (req, res) => {
     try {
       const dish = await Dish.findById(req.params.id);
       if (!dish) return res.status(404).json({ message: 'Not found' });
-      if (!dish.ownerId || !dish.ownerId.equals(req.user._id)) {
+      if (!isAdminUser(req) && (!dish.ownerId || !dish.ownerId.equals(req.user._id))) {
         return res.status(403).json({ message: 'Cannot delete a shared dish' });
       }
       await dish.deleteOne();
@@ -306,12 +312,12 @@ app.post('/api/grocery-list', async (req, res) => {
 // Misc Items — auth required, scoped to user
 // ---------------------------------------------------------------------------
 
-app.get('/api/misc-items', requireAuth, async (req, res) => {
+app.get('/api/misc-items', async (req, res) => {
   try {
-    // Return shared/default items + user's own custom items, sorted by name
-    const items = await MiscItem.find({
-      $or: [{ isShared: true }, { userId: req.user._id }],
-    }).sort({ name: 1 }).lean();
+    // Return shared/default items + community items + user's own custom items, sorted by name
+    const query = { $or: [{ isShared: true }] };
+    if (req.isAuthenticated()) query.$or.push({ userId: req.user._id });
+    const items = await MiscItem.find(query).sort({ name: 1 }).lean();
     res.json(items.map(normaliseId));
   } catch (err) {
     res.status(500).json({ message: 'Failed to load misc items' });
@@ -342,13 +348,19 @@ app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
   try {
     const { name } = req.body || {};
     if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
-    // Only allow editing user-owned items, not shared ones
-    const item = await MiscItem.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id, isShared: false },
-      { name: name.trim() },
-      { new: true }
-    );
-    if (!item) return res.status(404).json({ message: 'Not found or not editable' });
+
+    const admin = isAdminUser(req);
+    // Admin: can edit any item (claims shared items as user-owned on save)
+    // Regular user: can only edit their own non-shared items
+    const filter = admin
+      ? { _id: req.params.id }
+      : { _id: req.params.id, userId: req.user._id, isShared: false };
+    const update = admin
+      ? { name: name.trim(), isShared: false, userId: req.user._id }
+      : { name: name.trim() };
+
+    const item = await MiscItem.findOneAndUpdate(filter, update, { new: true });
+    if (!item) return res.status(admin ? 404 : 403).json({ message: admin ? 'Not found' : 'Cannot edit this item' });
     res.json(normaliseId(item.toObject()));
   } catch (err) {
     res.status(500).json({ message: 'Failed to update misc item' });
@@ -357,9 +369,14 @@ app.put('/api/misc-items/:id', requireAuth, async (req, res) => {
 
 app.delete('/api/misc-items/:id', requireAuth, async (req, res) => {
   try {
-    // Only allow deleting user-owned items, not shared ones
-    const result = await MiscItem.deleteOne({ _id: req.params.id, userId: req.user._id, isShared: false });
-    if (result.deletedCount === 0) return res.status(404).json({ message: 'Not found or not deletable' });
+    const admin = isAdminUser(req);
+    // Admin: can delete any item; regular user: can only delete their own non-shared items
+    const filter = admin
+      ? { _id: req.params.id }
+      : { _id: req.params.id, userId: req.user._id, isShared: false };
+
+    const result = await MiscItem.deleteOne(filter);
+    if (result.deletedCount === 0) return res.status(admin ? 404 : 403).json({ message: admin ? 'Not found' : 'Cannot delete this item' });
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ message: 'Failed to delete misc item' });
