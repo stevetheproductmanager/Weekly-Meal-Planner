@@ -1108,7 +1108,12 @@ const handleRenameMiscItem = async (id, newName) => {
             ) : activeTab === 'grocery' ? (
               <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                  <h2 className="text-lg font-semibold">Grocery List</h2>
+                  <div>
+                    <h2 className="text-lg font-semibold">Grocery List</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Ingredients from this week's plan, ready to shop.
+                    </p>
+                  </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Shopping mode toggle */}
                     <button
