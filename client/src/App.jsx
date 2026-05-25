@@ -1004,8 +1004,8 @@ const handleRenameMiscItem = async (id, newName) => {
         ) : (
           <main className="flex-1 flex flex-col gap-4">
             {(activeTab === 'mains' || activeTab === 'sides') ? (
-              <section className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div>
                     <h2 className="text-lg font-semibold">
                       {activeTab === 'mains' ? 'Mains' : 'Sides'}
@@ -1053,21 +1053,18 @@ const handleRenameMiscItem = async (id, newName) => {
                     )}
                   </div>
                 </div>
-
-                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
-                  <InventoryTab
-                    kind={activeTab === 'mains' ? 'main' : 'side'}
-                    dishes={activeTab === 'mains' ? mains : sides}
-                    planEntries={planEntries}
-                    planWithDetails={planWithDetails}
-                    viewMode={viewMode}
-                    canEditDish={isGuest ? null : (dish) => dish.canEdit === true}
-                    onAddMainToPlan={handleAddMainToPlan}
-                    onAttachSide={handleAttachSide}
-                    onEditDish={openEditDishDialog}
-                    onDeleteDish={openDeleteDishDialog}
-                  />
-                </div>
+                <InventoryTab
+                  kind={activeTab === 'mains' ? 'main' : 'side'}
+                  dishes={activeTab === 'mains' ? mains : sides}
+                  planEntries={planEntries}
+                  planWithDetails={planWithDetails}
+                  viewMode={viewMode}
+                  canEditDish={isGuest ? null : (dish) => dish.canEdit === true}
+                  onAddMainToPlan={handleAddMainToPlan}
+                  onAttachSide={handleAttachSide}
+                  onEditDish={openEditDishDialog}
+                  onDeleteDish={openDeleteDishDialog}
+                />
               </section>
                ) : activeTab === 'misc' ? (
               <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
