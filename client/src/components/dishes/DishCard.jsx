@@ -45,13 +45,13 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
               type="button"
               onClick={onAttachToMeal}
               title={inPlan ? 'Attach to another dinner' : 'Attach to a dinner'}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors ${
+              className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-all active:translate-y-px focus:outline-none focus:ring-1 focus:ring-emerald-500/60 ${
                 inPlan
-                  ? 'text-emerald-500 dark:text-emerald-400 hover:bg-emerald-900/30'
-                  : 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/30'
+                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400'
+                  : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-sm'
               }`}
             >
-              <LinkIcon />
+              <LinkIcon size={12} />
             </button>
           )}
           {canAdd && (
@@ -60,13 +60,13 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
               onClick={onPrimaryAction}
               disabled={inPlan}
               title={inPlan ? 'Already in plan' : 'Add to week'}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors ${
+              className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-all active:translate-y-px focus:outline-none focus:ring-1 focus:ring-emerald-500/60 ${
                 inPlan
-                  ? 'text-emerald-500 dark:text-emerald-400 cursor-default opacity-60'
-                  : 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/30'
+                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 cursor-default'
+                  : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-sm'
               }`}
             >
-              <CalendarPlusIcon />
+              <CalendarPlusIcon size={12} />
             </button>
           )}
           {onEdit && (

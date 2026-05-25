@@ -87,10 +87,14 @@ function DishListTable({
                     <button
                       type="button"
                       onClick={() => onAttachSideToMeal(dish)}
-                      title="Attach to a dinner"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors"
+                      title={inPlanIds.has(dish.id) ? 'Attach to another dinner' : 'Attach to a dinner'}
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-all active:translate-y-px focus:outline-none focus:ring-1 focus:ring-emerald-500/60 ${
+                        inPlanIds.has(dish.id)
+                          ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400'
+                          : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-sm'
+                      }`}
                     >
-                      <LinkIcon />
+                      <LinkIcon size={12} />
                     </button>
                   )}
                   {kind === 'main' && (
@@ -99,13 +103,13 @@ function DishListTable({
                       onClick={() => onAddMainToPlan(dish.id)}
                       disabled={inPlanIds.has(dish.id)}
                       title={inPlanIds.has(dish.id) ? 'Already in plan' : 'Add to week'}
-                      className={`inline-flex h-7 w-7 items-center justify-center rounded-full focus:outline-none focus:ring-1 focus:ring-emerald-500/60 transition-colors ${
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-all active:translate-y-px focus:outline-none focus:ring-1 focus:ring-emerald-500/60 ${
                         inPlanIds.has(dish.id)
-                          ? 'text-emerald-500 dark:text-emerald-400 cursor-default opacity-60'
-                          : 'text-slate-400 hover:text-emerald-400 hover:bg-emerald-900/30'
+                          ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 cursor-default'
+                          : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-sm'
                       }`}
                     >
-                      <CalendarPlusIcon />
+                      <CalendarPlusIcon size={12} />
                     </button>
                   )}
                   {onEditDish && canEditDish?.(dish) && (

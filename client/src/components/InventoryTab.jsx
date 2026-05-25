@@ -12,7 +12,7 @@ function InventoryTab({
   planEntries = [],
   planWithDetails = [],
   viewMode,
-  canEdit = true,
+  canEditDish = null, // (dish) => bool  —  null means nobody can edit
   onAddMainToPlan,
   onAttachSide,
   onEditDish,
@@ -73,8 +73,8 @@ function InventoryTab({
               inPlan={kind === 'main' ? mainIdsInPlan.has(dish.id) : sidesInPlanIds.has(dish.id)}
               onPrimaryAction={kind === 'main' ? () => onAddMainToPlan(dish.id) : null}
               onAttachToMeal={kind === 'side' ? () => setAttachingSide(dish) : undefined}
-              onEdit={canEdit ? () => onEditDish(kind, dish) : null}
-              onDelete={canEdit ? () => onDeleteDish(kind, dish) : null}
+              onEdit={canEditDish?.(dish) ? () => onEditDish(kind, dish) : null}
+              onDelete={canEditDish?.(dish) ? () => onDeleteDish(kind, dish) : null}
             />
           ))}
           {!filtered.length && (
@@ -91,10 +91,11 @@ function InventoryTab({
         kind={kind}
         dishes={paginated}
         inPlanIds={kind === 'main' ? mainIdsInPlan : sidesInPlanIds}
+        canEditDish={canEditDish}
         onAddMainToPlan={onAddMainToPlan}
         onAttachSideToMeal={kind === 'side' ? (dish) => setAttachingSide(dish) : undefined}
-        onEditDish={canEdit ? onEditDish : null}
-        onDeleteDish={canEdit ? onDeleteDish : null}
+        onEditDish={canEditDish ? onEditDish : null}
+        onDeleteDish={canEditDish ? onDeleteDish : null}
       />
     );
   };

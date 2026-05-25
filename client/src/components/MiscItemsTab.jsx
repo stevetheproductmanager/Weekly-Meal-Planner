@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PencilIcon, TrashIcon, XIcon } from './Icons';
+import { PencilIcon, TrashIcon, XIcon, CheckIcon } from './Icons';
 
 function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), canEditItem = () => true, onAddToGrocery, onDeleteItem, onOpenMiscDialog }) {
   const safeItems = Array.isArray(items) ? items : [];
@@ -90,14 +90,15 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), canEditIte
                     {onAddToGrocery && (
                       <button
                         type="button"
-                        className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm active:translate-y-px transition-all ${
-                          inList
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-900/50'
-                            : 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white hover:from-emerald-400 hover:to-emerald-500'
-                        }`}
+                        title={inList ? 'Added to list' : 'Add to grocery list'}
                         onClick={() => onAddToGrocery(item.id)}
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-all active:translate-y-px focus:outline-none focus:ring-1 focus:ring-emerald-500/60 ${
+                          inList
+                            ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400'
+                            : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-sm'
+                        }`}
                       >
-                        + Item
+                        <CheckIcon size={12} />
                       </button>
                     )}
                   </div>
@@ -117,7 +118,7 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), canEditIte
         return (
           <div
             key={item.id}
-            className={`rounded-xl border bg-white p-3 flex flex-col justify-between shadow-sm transition-colors dark:bg-slate-950/80 ${
+            className={`rounded-xl border bg-white p-3 shadow-sm transition-colors dark:bg-slate-950/80 ${
               inList
                 ? 'border-emerald-400/70 dark:border-emerald-600/60'
                 : 'border-slate-200 hover:border-emerald-500/60 dark:border-slate-800'
@@ -141,6 +142,20 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), canEditIte
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {onAddToGrocery && (
+                  <button
+                    type="button"
+                    title={inList ? 'Added to list' : 'Add to grocery list'}
+                    onClick={() => onAddToGrocery(item.id)}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-all active:translate-y-px focus:outline-none focus:ring-1 focus:ring-emerald-500/60 ${
+                      inList
+                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400'
+                        : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-sm'
+                    }`}
+                  >
+                    <CheckIcon size={12} />
+                  </button>
+                )}
                 {canEditItem(item) && (
                   <button
                     type="button"
@@ -161,23 +176,9 @@ function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), canEditIte
                     <TrashIcon />
                   </button>
                 )}
+
               </div>
             </div>
-            {onAddToGrocery && (
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm active:translate-y-px transition-all ${
-                    inList
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-900/50'
-                      : 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white hover:from-emerald-400 hover:to-emerald-500'
-                  }`}
-                  onClick={() => onAddToGrocery(item.id)}
-                >
-                  + Item
-                </button>
-              </div>
-            )}
           </div>
         );
       })}
