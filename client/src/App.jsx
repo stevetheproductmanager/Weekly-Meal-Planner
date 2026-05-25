@@ -8,6 +8,7 @@ import ConfirmDialog from './components/dialogs/ConfirmDialog';
 import MiscItemDialog from './components/dialogs/MiscItemDialog';
 import SavePlanDialog from './components/dialogs/SavePlanDialog';
 import HelpDialog from './components/dialogs/HelpDialog';
+import ReplaceMealDialog from './components/dialogs/ReplaceMealDialog';
 import MiscItemsTab from './components/MiscItemsTab';
 import LandingPage from './components/LandingPage';
 import { ToastContainer } from './components/Toast';
@@ -65,7 +66,7 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
     planWarning: null,
   });
 
-  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
+  const [replaceMealDialog, setReplaceMealDialog] = useState({ open: false, incomingMainId: null });
   const [helpOpen, setHelpOpen] = useState(false);
   const [savedPlans, setSavedPlans] = useState([]);
   const [savePlanDialogOpen, setSavePlanDialogOpen] = useState(false);
@@ -467,7 +468,7 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
     );
 
     if (activeEntries.length >= 7) {
-      setLimitDialogOpen(true);
+      setReplaceMealDialog({ open: true, incomingMainId: mainId });
       return;
     }
 
@@ -481,6 +482,18 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
     persistPlan(updated);
     const main = mains.find((m) => m.id === mainId);
     if (main) addToast(`"${main.name}" added to this week's plan.`, 'success');
+  };
+
+  const handleReplaceMeal = (entryId) => {
+    const { incomingMainId } = replaceMealDialog;
+    const removedMain = mains.find((m) => m.id === planEntries.find((e) => e.id === entryId)?.mainId);
+    const incomingMain = mains.find((m) => m.id === incomingMainId);
+    const newEntry = { id: 'entry_ui_' + Date.now().toString(36), mainId: incomingMainId, sideIds: [] };
+    const updated = planEntries.map((e) => e.id === entryId ? newEntry : e);
+    setPlanEntries(updated);
+    persistPlan(updated);
+    setReplaceMealDialog({ open: false, incomingMainId: null });
+    if (incomingMain) addToast(`"${incomingMain.name}" replaced "${removedMain?.name ?? 'meal'}".`, 'success');
   };
 
   const handleRemoveEntryFromPlan = (entryId) => {
@@ -1188,15 +1201,12 @@ const handleRenameMiscItem = async (id, newName) => {
         />
       )}
 
-      {limitDialogOpen && (
-        <ConfirmDialog
-          title="Weekly dinner limit"
-          message="You already have 7 dinners planned for this week. Remove one if you'd like to add another."
-          onCancel={() => setLimitDialogOpen(false)}
-          onConfirm={() => setLimitDialogOpen(false)}
-          cancelLabel="Close"
-          confirmLabel="OK"
-          confirmVariant="secondary"
+      {replaceMealDialog.open && (
+        <ReplaceMealDialog
+          incomingDish={mains.find((m) => m.id === replaceMealDialog.incomingMainId)}
+          currentEntries={planWithDetails}
+          onReplace={handleReplaceMeal}
+          onClose={() => setReplaceMealDialog({ open: false, incomingMainId: null })}
         />
       )}
 
