@@ -975,8 +975,8 @@ const handleRenameMiscItem = async (id, newName) => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-all duration-150
                   ${activeTab === tab.id
-                    ? 'bg-white text-emerald-600 shadow-sm dark:bg-slate-700 dark:text-emerald-400'
-                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                    ? 'bg-white text-emerald-600 ring-1 ring-slate-300 shadow-md dark:bg-slate-700 dark:text-emerald-400 dark:ring-slate-600 dark:shadow-slate-900/60'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200'
                   }`}
               >
                 <span className="shrink-0 [&_svg]:h-4 [&_svg]:w-4">{tab.icon}</span>
