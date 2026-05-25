@@ -194,7 +194,7 @@ function DesktopListView({ entries, allSides, canAddMore, onOpenPicker, onRemove
   const handleDragStart = (index) => setDragIndex(index);
 
   const handleDragOver = (e, index) => {
-    e.preventDefault();
+    e.preventSimmer();
     if (index !== dragOverIndex) setDragOverIndex(index);
   };
 
@@ -336,7 +336,7 @@ function DesktopListItem({
           {entry.main && (
             entry.main.ownerId
               ? <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
-              : <span className="shrink-0 inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Default</span>
+              : <span className="shrink-0 inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Simmer</span>
           )}
         </div>
 
