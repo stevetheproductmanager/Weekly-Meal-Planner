@@ -194,7 +194,7 @@ function DesktopListView({ entries, allSides, canAddMore, onOpenPicker, onRemove
   const handleDragStart = (index) => setDragIndex(index);
 
   const handleDragOver = (e, index) => {
-    e.preventSimmer();
+    e.preventDefault();
     if (index !== dragOverIndex) setDragOverIndex(index);
   };
 
