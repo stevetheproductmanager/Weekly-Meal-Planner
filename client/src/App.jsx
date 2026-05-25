@@ -967,23 +967,24 @@ const handleRenameMiscItem = async (id, newName) => {
       {/* Main content shell */}
       <div className="flex-1 w-full px-4 sm:px-6 pt-4 sm:pt-5 pb-24 sm:pb-5 flex flex-col gap-5">
         {/* Desktop tabs */}
-        <nav className="hidden sm:flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center -mb-px overflow-x-auto scrollbar-none">
+        <nav className="hidden sm:flex items-center justify-between gap-4">
+          <div className="flex items-center gap-0.5 rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800/60">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`relative px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-all duration-150
+                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-all duration-150
                   ${activeTab === tab.id
-                    ? 'border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
-                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-200'
+                    ? 'bg-white text-emerald-600 shadow-sm dark:bg-slate-700 dark:text-emerald-400'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                   }`}
               >
-                {tab.label}
+                <span className="shrink-0 [&_svg]:h-4 [&_svg]:w-4">{tab.icon}</span>
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
-          <span className="shrink-0 pl-4 pb-3 text-xs font-medium text-slate-400 dark:text-slate-500">
+          <span className="shrink-0 text-xs font-medium text-slate-400 dark:text-slate-500">
             {planWithDetails.length} / 7 dinners
           </span>
         </nav>
