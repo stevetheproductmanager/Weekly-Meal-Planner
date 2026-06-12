@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import InventoryTab from './components/InventoryTab';
 import PlanTab from './components/PlanTab';
 import PlanHistoryTab from './components/PlanHistoryTab';
@@ -10,16 +10,23 @@ import SavePlanDialog from './components/dialogs/SavePlanDialog';
 import HelpDialog from './components/dialogs/HelpDialog';
 import ReplaceMealDialog from './components/dialogs/ReplaceMealDialog';
 import MiscItemsTab from './components/MiscItemsTab';
+import PantryTab from './components/PantryTab';
+import MarketplaceTab from './components/MarketplaceTab';
 import LandingPage from './components/LandingPage';
+import OnboardingWizard, { scoreDishByPrefs } from './components/OnboardingWizard';
+import AdminPage from './components/AdminPage';
+import AppHeader, { MobileBottomNav, DesktopIconNav, KITCHEN_IDS } from './components/AppHeader';
 import { ToastContainer } from './components/Toast';
-import { UtensilsIcon, SunIcon, MoonIcon, ShoppingCartIcon, MenuIcon, XIcon, ChevronDownIcon, CalendarIcon, BowlIcon, PackageIcon } from './components/Icons';
+import { UtensilsIcon, BowlIcon, PackageIcon, PantryIcon, ShoppingCartIcon } from './components/Icons';
 import { useAuth } from './context/AuthContext';
+import useGroceryList from './hooks/useGroceryList';
+import usePlan from './hooks/usePlan';
+import useDishes from './hooks/useDishes';
+import { getThisMonday, addWeeks, formatWeekRange } from './utils/week';
+import { trackPageView } from './analytics';
 import './index.css';
 
 const API_BASE = '/api';
-
-const makeGroceryKey = (item) =>
-  `${(item.name || '').toLowerCase()}||${(item.unit || '').toLowerCase()}||${(item.category || '').toLowerCase()}`;
 
 function App() {
   const { user, loading: authLoading, guestMode, signIn, signOut } = useAuth();
@@ -28,19 +35,49 @@ function App() {
   // isAdmin = signed-in user is the designated admin
   const isAdmin = user?.isAdmin === true;
 
-  const [mains, setMains] = useState([]);
-  const [sides, setSides] = useState([]);
-  const [planEntries, setPlanEntries] = useState([]); // {id, mainId, sideIds[]}
-  const [groceryItems, setGroceryItems] = useState([]);
-  const [hiddenGroceryKeys, setHiddenGroceryKeys] = useState(() => {
-    try {
-      const stored = localStorage.getItem('hiddenGroceryKeys');
-      return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('plan');
+  const [lastKitchenTab, setLastKitchenTab] = useState('mains');
+  // ---- First-run onboarding ----
+  // Initial state uses the legacy key so guests (no user object) still suppress onboarding
+  // across page reloads after they've skipped or completed the flow.
+  // Once the user object is available, we switch EXCLUSIVELY to the user-scoped key —
+  // deliberately NOT migrating from the legacy key. This means a deleted + re-registered
+  // account (new _id, same browser, old legacy key) correctly gets onboarding again.
+  const [isOnboarded, setIsOnboarded] = useState(
+    () => !!localStorage.getItem('simmer_onboarded')
+  );
+  useEffect(() => {
+    if (!user) return;
+    const userKey = `simmer_onboarded_${user.id}`;
+    // Only the user-scoped key is trusted for signed-in users.
+    // Never migrate from the legacy key here — that's what was causing
+    // deleted + re-registered accounts to skip onboarding.
+    setIsOnboarded(!!localStorage.getItem(userKey));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ---- User taste preferences (set during onboarding, used by Surprise Me) ----
+  const [userPrefs, setUserPrefs] = useState(() => {
+    try {
+      const raw = localStorage.getItem('simmer_prefs');
+      return raw ? JSON.parse(raw) : { cuisines: [], proteins: [], styles: [] };
+    } catch { return { cuisines: [], proteins: [], styles: [] }; }
+  });
+  // Once user object is available, load user-scoped prefs key
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const raw = localStorage.getItem(`simmer_prefs_${user.id}`);
+      if (raw) setUserPrefs(JSON.parse(raw));
+    } catch {}
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- Recently-used meal IDs (for picker "Recent" tab) ----
+  const [recentMealIds, setRecentMealIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('simmer_recent_meals') || '[]'); }
+    catch { return []; }
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'list'
 
   const [dishDialog, setDishDialog] = useState({
@@ -71,42 +108,107 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
   const [savedPlans, setSavedPlans] = useState([]);
   const [savePlanDialogOpen, setSavePlanDialogOpen] = useState(false);
   const [reloadConfirmPlan, setReloadConfirmPlan] = useState(null);
+  const [copyWeekPending, setCopyWeekPending] = useState(null); // entries waiting for overwrite confirm
+  const [cloneWeekPending, setCloneWeekPending] = useState(null); // shared-week entries waiting for overwrite confirm
 
   // ---- Toasts ----
   const [toasts, setToasts] = useState([]);
-  const addToast = useCallback((message, type = 'info') => {
+  /**
+   * @param {string} message
+   * @param {'info'|'success'|'error'} [type]
+   * @param {{ label: string, onClick: () => void }} [action]  optional undo/action button
+   */
+  const addToast = useCallback((message, type = 'info', action) => {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    const duration = action ? 5500 : 4000; // longer when there's an undo button
+    setToasts((prev) => [...prev, { id, message, type, action, duration }]);
   }, []);
   const dismissToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // ---- Shopping mode ----
-  const [shoppingMode, setShoppingMode] = useState(false);
-  const [checkedGroceryKeys, setCheckedGroceryKeys] = useState(() => {
-    try {
-      const stored = localStorage.getItem('checkedGroceryKeys');
-      return stored ? JSON.parse(stored) : [];
-    } catch { return []; }
-  });
+  // ---- Dish library domain (mains/sides + server actions live in hooks/useDishes) ----
+  const {
+    mains, setMains,
+    sides, setSides,
+    rateDish:          handleRateDish,
+    toggleSaveDish:    handleToggleSaveDish,
+    submitToCommunity: handleSubmitToCommunity,
+    createDish:        handleCreateDish,
+    updateDish:        handleUpdateDish,
+    deleteDish,
+  } = useDishes({ user, addToast });
 
-  // ---- Mobile menu ----
-  const [menuOpen, setMenuOpen] = useState(false);
+  // ---- Plan domain (state + week nav live in hooks/usePlan) ----
+  const {
+    planEntries, setPlanEntries, persistPlan, loadPlanEntries,
+    currentWeekStart, setCurrentWeekStart,
+    isReadOnlyWeek,
+    goToPrevWeek:    handlePrevWeek,
+    goToNextWeek:    handleNextWeek,
+    goToCurrentWeek: handleGoToCurrentWeek,
+    navigateToWeek:  handleNavigateToWeek,
+    prevWeekHasMeals,
+    monthPlansData, fetchMonthPlans,
+    reorderPlan:       handleReorderPlan,
+    reorderMonthEntry: handleReorderMonthEntry,
+  } = usePlan({ user, isGuest, mains, sides });
 
-  // ---- User context menu (desktop) ----
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const userMenuRef = useRef(null);
+  // ---- Grocery list domain (state + handlers live in hooks/useGroceryList) ----
+  const {
+    allGroceryItems,
+    miscGroceryItems,
+    shoppingMode, setShoppingMode,
+    checkedGroceryKeys,
+    toggleCheckedGrocery:    handleToggleCheckedGrocery,
+    batchCheckGrocery:       handleBatchCheckGrocery,
+    clearCheckedGrocery:     handleClearCheckedGrocery,
+    exitShopMode:            handleExitShopMode,
+    dismissGroceryItem:      handleDismissGroceryItem,
+    resetGroceryList:        handleResetGroceryList,
+    addCustomListItem:       handleAddCustomListItem,
+    removeCustomListItem:    handleRemoveCustomListItem,
+    addMiscGroceryItem,
+    removeMiscGroceryItem:   handleRemoveMiscGroceryItem,
+    removeMiscGroceryByInventoryId,
+    copyGroceryList,
+  } = useGroceryList({ weekStart: currentWeekStart, planEntries, addToast });
+
+  // planWithDetails is derived further down — passed at call time
+  const handleCopyGroceryList = () => copyGroceryList(planWithDetails);
+
+  // ---- Online/offline detection ----
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   useEffect(() => {
-    if (!userMenuOpen) return;
-    const handleOutside = (e) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
-        setUserMenuOpen(false);
-      }
+    const go  = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener('online',  go);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', go); window.removeEventListener('offline', off); };
+  }, []);
+
+  // ---- PWA: install prompt + SW update toast ----
+  const [pwaInstallable, setPwaInstallable] = useState(false);
+  useEffect(() => {
+    const onInstallable = () => setPwaInstallable(true);
+    const onUpdate      = () => addToast('App updated — refresh for the latest version.', 'info');
+    window.addEventListener('pwa-installable',    onInstallable);
+    window.addEventListener('sw-update-available', onUpdate);
+    // prompt may already have fired before this effect ran
+    if (window.__pwaInstallPrompt) setPwaInstallable(true);
+    return () => {
+      window.removeEventListener('pwa-installable',    onInstallable);
+      window.removeEventListener('sw-update-available', onUpdate);
     };
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
-  }, [userMenuOpen]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleInstallApp = async () => {
+    const prompt = window.__pwaInstallPrompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    if (outcome === 'accepted') { setPwaInstallable(false); window.__pwaInstallPrompt = null; }
+  };
 
   // ---- Theme state ----
   const [theme, setTheme] = useState(() => {
@@ -150,33 +252,13 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
 
         if (user) {
           // Authenticated — load plan + history from API
-          const [planRes, savedPlansRes] = await Promise.all([
-            fetch(`${API_BASE}/plan`, { credentials: 'include' }),
+          const [savedPlansRes] = await Promise.all([
             fetch(`${API_BASE}/saved-plans`, { credentials: 'include' }),
           ]);
-          const planData = planRes.ok ? await planRes.json() : { entries: [] };
           if (savedPlansRes.ok) setSavedPlans(await savedPlansRes.json());
-
-          const validEntries = (planData.entries || [])
-            .map((entry) => ({
-              ...entry,
-              sideIds: (entry.sideIds || []).filter((sid) => sidesData.some((s) => s.id === sid)),
-            }))
-            .filter((entry) => mainsData.some((m) => m.id === entry.mainId));
-          setPlanEntries(validEntries);
+          await loadPlanEntries(currentWeekStart, mainsData, sidesData);
         } else {
-          // Guest — restore plan from localStorage
-          try {
-            const stored = localStorage.getItem('simmer_guest_plan');
-            const guestEntries = stored ? JSON.parse(stored) : [];
-            const validEntries = guestEntries
-              .map((entry) => ({
-                ...entry,
-                sideIds: (entry.sideIds || []).filter((sid) => sidesData.some((s) => s.id === sid)),
-              }))
-              .filter((entry) => mainsData.some((m) => m.id === entry.mainId));
-            setPlanEntries(validEntries);
-          } catch { setPlanEntries([]); }
+          await loadPlanEntries(currentWeekStart, mainsData, sidesData);
         }
 
         setError('');
@@ -191,51 +273,28 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
     loadData();
   }, [authLoading, user, guestMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- Build grocery list whenever plan changes ----
+  // ---- Analytics: track every page/tab as an SPA page view ----
   useEffect(() => {
-    if (!planEntries.length) {
-      setGroceryItems([]);
-      return;
+    if (authLoading) return;
+    if (!user && !guestMode) { trackPageView('landing'); return; }
+    trackPageView(activeTab);
+  }, [authLoading, user, guestMode, activeTab]);
+
+  // Onboarding wizard is an overlay, not a tab — track it separately
+  useEffect(() => {
+    if (!isOnboarded && !loading && mains.length > 0 && planEntries.length === 0) {
+      trackPageView('onboarding');
     }
-    const fetchGrocery = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/grocery-list`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entries: planEntries.map((e) => ({
-              mainId: e.mainId,
-              sideIds: e.sideIds || [],
-            })),
-          }),
-        });
-        if (!res.ok) {
-          throw new Error('Failed to build grocery list');
-        }
-        const data = await res.json();
-        setGroceryItems(data.items || []);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchGrocery();
-  }, [planEntries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnboarded, loading]);
 
+  // ---- Fetch month plans when plan tab activates ----
+  useEffect(() => {
+    if (activeTab === 'plan' && user) fetchMonthPlans(currentWeekStart);
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  
 // Shared inventory (server-backed)
 const [miscInventory, setMiscInventory] = useState([]);
-
-// This week's selected misc items (per browser/week)
-const [miscGroceryItems, setMiscGroceryItems] = useState(() => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem('miscGroceryItems');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-});
 
 useEffect(() => {
   const loadMiscInventory = async () => {
@@ -260,30 +319,160 @@ useEffect(() => {
   loadMiscInventory();
 }, [user]);
 
-// Persist this week's misc selections locally
+// ---- Pantry items ----
+const [pantryItems, setPantryItems] = useState([]);
+
 useEffect(() => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('miscGroceryItems', JSON.stringify(miscGroceryItems));
+  const loadPantry = async () => {
+    if (!user) {
+      // Guest — read from localStorage
+      try {
+        const stored = localStorage.getItem('simmer_pantry');
+        setPantryItems(stored ? JSON.parse(stored) : []);
+      } catch { setPantryItems([]); }
+      return;
+    }
+
+    try {
+      // Grab any pantry items the user built up as a guest
+      let guestItems = [];
+      try {
+        const stored = localStorage.getItem('simmer_pantry');
+        guestItems = stored ? JSON.parse(stored) : [];
+      } catch {}
+
+      // Fetch existing DB pantry for this account
+      const dbRes = await fetch(`${API_BASE}/pantry`, { credentials: 'include' });
+      const dbItems = dbRes.ok ? await dbRes.json() : [];
+
+      if (guestItems.length > 0) {
+        // POST all guest names — server upserts so no duplicates are created
+        const mergeRes = await fetch(`${API_BASE}/pantry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ names: guestItems.map(i => i.name) }),
+        });
+
+        if (mergeRes.ok) {
+          const upserted = await mergeRes.json();
+          // Only count items that were genuinely new (not already in the DB)
+          const existingIds = new Set(dbItems.map(i => i.id));
+          const newItems = upserted.filter(i => !existingIds.has(i.id));
+          const combined = [...dbItems, ...newItems].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          );
+          setPantryItems(combined);
+          if (newItems.length > 0) {
+            addToast(
+              `${newItems.length} pantry item${newItems.length > 1 ? 's' : ''} carried over from your guest session.`,
+              'success',
+            );
+          }
+        } else {
+          setPantryItems(dbItems);
+        }
+
+        // Clear the guest copy regardless — it now lives in the DB
+        localStorage.removeItem('simmer_pantry');
+      } else {
+        setPantryItems(dbItems);
+      }
+    } catch (err) { console.error(err); }
+  };
+  loadPantry();
+}, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+const handleAddToPantry = async (name) => {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  if (!user) {
+    const id = 'pantry_' + Date.now().toString(36);
+    const updated = [...pantryItems, { id, name: trimmed }];
+    setPantryItems(updated);
+    try { localStorage.setItem('simmer_pantry', JSON.stringify(updated)); } catch {}
+    return;
   }
-}, [miscGroceryItems]);
-
-useEffect(() => {
-  localStorage.setItem('hiddenGroceryKeys', JSON.stringify(hiddenGroceryKeys));
-}, [hiddenGroceryKeys]);
-
-useEffect(() => {
-  localStorage.setItem('checkedGroceryKeys', JSON.stringify(checkedGroceryKeys));
-}, [checkedGroceryKeys]);
-
-const handleToggleCheckedGrocery = useCallback((key) => {
-  setCheckedGroceryKeys((prev) =>
-    prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-  );
-}, []);
-
-const handleClearCheckedGrocery = () => {
-  setCheckedGroceryKeys([]);
+  try {
+    const res = await fetch(`${API_BASE}/pantry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: trimmed }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const saved = Array.isArray(data) ? data[0] : data;
+    if (saved) setPantryItems(prev => [...prev, saved]);
+  } catch { addToast('Could not add to pantry.', 'error'); }
 };
+
+const handleRemoveFromPantry = async (id) => {
+  if (!user) {
+    const updated = pantryItems.filter(i => (i._id || i.id) !== id);
+    setPantryItems(updated);
+    try { localStorage.setItem('simmer_pantry', JSON.stringify(updated)); } catch {}
+    return;
+  }
+  try {
+    const res = await fetch(`${API_BASE}/pantry/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok && res.status !== 204) throw new Error();
+    setPantryItems(prev => prev.filter(i => (i._id || i.id) !== id));
+  } catch { addToast('Could not remove from pantry.', 'error'); }
+};
+
+// Add several meals at once (used by first-run onboarding)
+const handleBulkAddToPlan = (ids) => {
+  const additions = [];
+  ids.forEach(mainId => {
+    if (planEntries.find(e => e.mainId === mainId)) return;
+    if (planEntries.length + additions.length >= 7) return;
+    additions.push({
+      id: 'entry_ui_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+      mainId,
+      sideIds: [],
+      servings: 4,
+    });
+  });
+  if (!additions.length) return;
+  const updated = [...planEntries, ...additions];
+  setPlanEntries(updated);
+  persistPlan(updated);
+  // Update recent-meal tracking
+  const newIds = additions.map(e => e.mainId);
+  setRecentMealIds(prev => {
+    const next = [...newIds, ...prev.filter(id => !newIds.includes(id))].slice(0, 20);
+    localStorage.setItem('simmer_recent_meals', JSON.stringify(next));
+    return next;
+  });
+};
+
+// Called when the user completes (or skips) the onboarding wizard.
+// prefs = { cuisines, proteins, styles }  selectedIds = mainIds to add to plan
+const handleOnboardingComplete = (prefs, selectedIds) => {
+  // Persist onboarding flag
+  if (user?.id) localStorage.setItem(`simmer_onboarded_${user.id}`, '1');
+  localStorage.setItem('simmer_onboarded', '1');
+  setIsOnboarded(true);
+  // Persist preferences
+  const prefsKey = user?.id ? `simmer_prefs_${user.id}` : 'simmer_prefs';
+  try { localStorage.setItem(prefsKey, JSON.stringify(prefs)); } catch {}
+  localStorage.setItem('simmer_prefs', JSON.stringify(prefs)); // guest fallback
+  setUserPrefs(prefs);
+  // Add any starter meals the user picked
+  if (selectedIds.length > 0) {
+    handleBulkAddToPlan(selectedIds);
+    addToast(
+      `${selectedIds.length} meal${selectedIds.length !== 1 ? 's' : ''} added! Your grocery list is ready.`,
+      'success',
+      { label: 'View list', onClick: () => setActiveTab('grocery') }
+    );
+  }
+};
+
 
   
 
@@ -313,14 +502,7 @@ const handleAddMiscItem = async (name) => {
     });
 
     // Add to THIS week's grocery list
-    setMiscGroceryItems((prev) => [
-      ...prev,
-      {
-        id: 'misc_' + Date.now().toString(36),
-        name: saved.name,
-        inventoryId: saved.id,
-      },
-    ]);
+    addMiscGroceryItem(saved.name, saved.id);
   } catch (err) {
     console.error(err);
     addToast('There was a problem adding the item.', 'error');
@@ -340,22 +522,13 @@ const closeMiscDialog = () => {
 
 
 
-const handleRemoveMiscGroceryItem = (miscId) => {
-  setMiscGroceryItems((prev) => prev.filter((item) => item.id !== miscId));
-};
-
 const handleAddMiscFromInventory = (inventoryId) => {
   const invItem = miscInventory.find((i) => i.id === inventoryId);
   if (!invItem) return;
+  // Prevent adding the same item twice in the same week
+  if (miscGroceryItems.some((i) => i.inventoryId === inventoryId)) return;
 
-  setMiscGroceryItems((prev) => [
-    ...prev,
-    {
-      id: 'misc_' + Date.now().toString(36),
-      name: invItem.name,
-      inventoryId,
-    },
-  ]);
+  addMiscGroceryItem(invItem.name, inventoryId);
   addToast(`"${invItem.name}" added to grocery list.`, 'success');
 };
 
@@ -370,9 +543,7 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
 
     const deleted = miscInventory.find((item) => item.id === inventoryId);
     setMiscInventory((prev) => prev.filter((item) => item.id !== inventoryId));
-    setMiscGroceryItems((prev) =>
-      prev.filter((item) => item.inventoryId !== inventoryId)
-    );
+    removeMiscGroceryByInventoryId(inventoryId);
     if (deleted) addToast(`"${deleted.name}" deleted.`, 'info');
   } catch (err) {
     console.error(err);
@@ -385,12 +556,15 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
 
   // ---- Saved plan handlers ----
   const handleSavePlan = async (name) => {
-    const entriesToSave = planWithDetails.map((e) => ({
-      mainId: e.mainId,
-      mainName: e.main.name,
-      sideIds: e.sideIds || [],
-      sides: e.sides.map((s) => ({ id: s.id, name: s.name })),
-    }));
+    // "Eating out" entries have no main — filter them out before saving
+    const entriesToSave = planWithDetails
+      .filter((e) => e.type !== 'out')
+      .map((e) => ({
+        mainId: e.mainId,
+        mainName: e.main.name,
+        sideIds: e.sideIds || [],
+        sides: e.sides.map((s) => ({ id: s.id, name: s.name })),
+      }));
     try {
       const res = await fetch(`${API_BASE}/saved-plans`, {
         method: 'POST',
@@ -438,24 +612,6 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
     setActiveTab('plan');
   };
 
-  const persistPlan = async (entries) => {
-    if (!user) {
-      // Guest — persist to localStorage only
-      try { localStorage.setItem('simmer_guest_plan', JSON.stringify(entries)); } catch {}
-      return;
-    }
-    try {
-      await fetch(`${API_BASE}/plan`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ entries }),
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   // ---- Plan actions ----
   const handleAddMainToPlan = (mainId) => {
     const existingForMain = planEntries.find((e) => e.mainId === mainId);
@@ -463,11 +619,8 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
       return;
     }
 
-    const activeEntries = planEntries.filter((entry) =>
-      mains.some((m) => m.id === entry.mainId),
-    );
-
-    if (activeEntries.length >= 7) {
+    // Count all slots (meals + "out" days) — the week holds exactly 7 nights
+    if (planEntries.length >= 7) {
       setReplaceMealDialog({ open: true, incomingMainId: mainId });
       return;
     }
@@ -476,10 +629,17 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
       id: 'entry_ui_' + Date.now().toString(36),
       mainId,
       sideIds: [],
+      servings: 4,
     };
     const updated = [...planEntries, newEntry];
     setPlanEntries(updated);
     persistPlan(updated);
+    // Track in recently-used list (for picker "Recent" tab)
+    setRecentMealIds(prev => {
+      const next = [mainId, ...prev.filter(id => id !== mainId)].slice(0, 20);
+      localStorage.setItem('simmer_recent_meals', JSON.stringify(next));
+      return next;
+    });
     const main = mains.find((m) => m.id === mainId);
     if (main) addToast(`"${main.name}" added to this week's plan.`, 'success');
   };
@@ -488,7 +648,7 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
     const { incomingMainId } = replaceMealDialog;
     const removedMain = mains.find((m) => m.id === planEntries.find((e) => e.id === entryId)?.mainId);
     const incomingMain = mains.find((m) => m.id === incomingMainId);
-    const newEntry = { id: 'entry_ui_' + Date.now().toString(36), mainId: incomingMainId, sideIds: [] };
+    const newEntry = { id: 'entry_ui_' + Date.now().toString(36), mainId: incomingMainId, sideIds: [], servings: 4 };
     const updated = planEntries.map((e) => e.id === entryId ? newEntry : e);
     setPlanEntries(updated);
     persistPlan(updated);
@@ -497,12 +657,24 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
   };
 
   const handleRemoveEntryFromPlan = (entryId) => {
-    const entry = planEntries.find((e) => e.id === entryId);
-    const main  = mains.find((m) => m.id === entry?.mainId);
-    const updated = planEntries.filter((e) => e.id !== entryId);
+    const entry    = planEntries.find((e) => e.id === entryId);
+    const main     = mains.find((m) => m.id === entry?.mainId);
+    const snapshot = [...planEntries];          // capture before removal for undo
+    const updated  = planEntries.filter((e) => e.id !== entryId);
     setPlanEntries(updated);
     persistPlan(updated);
-    if (main) addToast(`"${main.name}" removed from this week's plan.`, 'info');
+
+    const label = entry?.type === 'out'
+      ? (entry.label || 'Eating out')
+      : (main?.name ?? 'Dinner');
+
+    addToast(`"${label}" removed from plan.`, 'info', {
+      label: 'Undo',
+      onClick: () => {
+        setPlanEntries(snapshot);
+        persistPlan(snapshot);
+      },
+    });
   };
 
   const updateEntry = (entryId, newFields) => {
@@ -513,13 +685,41 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
     persistPlan(updated);
   };
 
-  const handleReorderPlan = (fromIndex, toIndex) => {
-    if (fromIndex === toIndex) return;
-    const newEntries = [...planEntries];
-    const [moved] = newEntries.splice(fromIndex, 1);
-    newEntries.splice(toIndex, 0, moved);
-    setPlanEntries(newEntries);
-    persistPlan(newEntries);
+  // ---- Plan note per entry ----
+  const handleUpdatePlanNote = (entryId, note) => updateEntry(entryId, { note });
+
+  // ---- "Eating out" day slot ----
+  const handleAddOutDay = (label = 'Eating out') => {
+    if (planEntries.length >= 7) return;
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const updated = [...planEntries, { id, type: 'out', label }];
+    setPlanEntries(updated);
+    persistPlan(updated);
+  };
+
+  // ---- Copy previous week as template ----
+  const handleCopyPreviousWeek = async () => {
+    const prevWeekIso = addWeeks(currentWeekStart, -1);
+    try {
+      const res = await fetch(`${API_BASE}/plan?week=${prevWeekIso}`, { credentials: 'include' });
+      if (!res.ok) { addToast("Couldn't load last week's plan.", 'error'); return; }
+      const data = await res.json();
+      const prevEntries = (data.entries || [])
+        .filter((e) => e.type === 'out' || mains.some((m) => m.id === e.mainId));
+      if (!prevEntries.length) { addToast("Last week had no meals planned.", 'info'); return; }
+      const newEntries = prevEntries.map((e) => ({
+        ...e,
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      }));
+      if (planEntries.length > 0) {
+        // Prompt with the in-app dialog instead of window.confirm
+        setCopyWeekPending(newEntries);
+        return;
+      }
+      setPlanEntries(newEntries);
+      persistPlan(newEntries);
+      addToast('Last week copied as a template! 📋', 'success');
+    } catch { addToast("Couldn't load last week's plan.", 'error'); }
   };
 
   const handleAttachSide = (entryId, sideId) => {
@@ -537,120 +737,152 @@ const handleDeleteMiscInventoryItem = async (inventoryId) => {
     const entry = planEntries.find((e) => e.id === entryId);
     if (!entry) return;
     const side = sides.find((s) => s.id === sideId);
+    const snapshot = planEntries.map(e => ({ ...e, sideIds: [...(e.sideIds || [])] }));
     const newSideIds = (entry.sideIds || []).filter((id) => id !== sideId);
     updateEntry(entryId, { sideIds: newSideIds });
-    if (side) addToast(`"${side.name}" removed from the plan.`, 'info');
+    if (side) addToast(`"${side.name}" removed.`, 'info', {
+      label: 'Undo',
+      onClick: () => { setPlanEntries(snapshot); persistPlan(snapshot); },
+    });
   };
 
-  // ---- Grocery actions ----
-  const handleDismissGroceryItem = (item) => {
-    const key = makeGroceryKey(item);
-    setHiddenGroceryKeys((prev) =>
-      prev.includes(key) ? prev : [...prev, key],
-    );
-  };
+  const handleUpdateServings = useCallback((entryId, servings) => {
+    updateEntry(entryId, { servings });
+  }, [planEntries]); // eslint-disable-line react-hooks/exhaustive-deps
 
-// Meal-based grocery items (from API), filtered by hidden keys
-const visibleGroceryItems = groceryItems.filter(
-  (item) => !hiddenGroceryKeys.includes(makeGroceryKey(item))
-);
+  // ---- Random week generator (weighted by star rating + taste preferences) ----
+  const handleRandomizeWeek = useCallback(() => {
+    const usedIds = new Set(planEntries.map(e => e.mainId));
+    const available = mains.filter(m => !usedIds.has(m.id));
+    const slotsNeeded = 7 - planEntries.length;
+    if (!available.length || slotsNeeded <= 0) return;
 
-// Attach a source flag so GroceryList knows how to remove them
-const mealGroceryItems = visibleGroceryItems.map(item => ({
-  ...item,
-  source: 'meal',
-}));
+    // Weighted sampling without replacement (Efraimidis-Spirakis algorithm).
+    // key = U^(1/w) — higher weight → higher expected key → floats to top.
+    // Base weight: square the rating (5★ = 25, unrated = 9).
+    // Preference boost: multiply by (1 + prefScore) where prefScore is 0–6
+    // based on matching cuisine/protein/style — up to 7× lift for a perfect match.
+    const rated = available.map(m => {
+      const ratingW = m.myRating ? m.myRating * m.myRating : 9;
+      const prefBoost = 1 + scoreDishByPrefs(m, userPrefs);
+      return { ...m, _w: ratingW * prefBoost };
+    });
+    const keyed = rated.map(m => ({
+      m,
+      key: Math.pow(Math.random(), 1 / m._w),
+    }));
+    keyed.sort((a, b) => b.key - a.key);
+    const picks = keyed.slice(0, slotsNeeded).map(k => k.m);
 
-// Misc items appear in the same table, but with Dishes column = "MISC ITEM"
-const miscGroceryItemsWithMeta = miscGroceryItems.map(item => ({
-  id: item.id,
-  name: item.name,
-  fromMeals: ['MISC ITEM'],
-  source: 'misc',
-}));
+    const newEntries = picks.map(m => ({
+      id: 'entry_ui_' + Date.now().toString(36) + Math.random().toString(36).slice(2),
+      mainId: m.id,
+      sideIds: [],
+      servings: 4,
+    }));
+    const updated = [...planEntries, ...newEntries];
+    setPlanEntries(updated);
+    persistPlan(updated);
+    addToast(`Added ${picks.length} meal${picks.length > 1 ? 's' : ''} to your week!`, 'success');
+  }, [planEntries, mains, userPrefs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-const allGroceryItems = [...mealGroceryItems, ...miscGroceryItemsWithMeta];
+  // ---- "Last cooked" map: mainId → most-recent savedAt across saved plans ----
+  const lastCookedMap = useMemo(() => {
+    const map = {};
+    savedPlans.forEach((plan) => {
+      const planDate = plan.savedAt || plan.createdAt;
+      if (!planDate) return;
+      (plan.entries || []).forEach((e) => {
+        if (!e.mainId) return;
+        if (!map[e.mainId] || new Date(planDate) > new Date(map[e.mainId])) {
+          map[e.mainId] = planDate;
+        }
+      });
+    });
+    return map;
+  }, [savedPlans]);
 
+  // ---- Derived plan details (needed by marketplace handlers below) ----
+  const planWithDetails = planEntries
+    .map((entry) => ({
+      ...entry,
+      main: mains.find((m) => m.id === entry.mainId),
+      sides: (entry.sideIds || [])
+        .map((id) => sides.find((s) => s.id === id))
+        .filter(Boolean),
+    }))
+    .filter((entry) => entry.type === 'out' || entry.main);
 
-  const handleResetGroceryList = () => {
-    setHiddenGroceryKeys([]);
-  };
-
-  // ---- CRUD: mains & sides ----
-  const handleCreateDish = async ({ kind, dish }) => {
-    const path = kind === 'main' ? 'mains' : 'sides';
+  // ---- Marketplace ----
+  const handleShareWeekToMarketplace = useCallback(async () => {
+    if (!user || !planWithDetails.length) return null;
+    const mon = new Date(currentWeekStart + 'T00:00:00Z');
+    const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+    const fmt = { month: 'short', day: 'numeric', timeZone: 'UTC' };
+    const label = `${mon.toLocaleDateString('en-US', fmt)} – ${sun.toLocaleDateString('en-US', { ...fmt, year: 'numeric' })}`;
     try {
-      const res = await fetch(`${API_BASE}/${path}`, {
+      const res = await fetch(`${API_BASE}/marketplace`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dish),
+        credentials: 'include',
+        body: JSON.stringify({
+          weekStart: currentWeekStart,
+          weekLabel: label,
+          entries: planWithDetails
+            .map((e, i) => ({ e, i }))
+            .filter(({ e }) => e.type !== 'out')
+            .map(({ e, i }) => ({
+              day:     i,
+              mainId:  e.mainId,
+              sideIds: e.sideIds || [],
+            })),
+        }),
       });
-      if (!res.ok) throw new Error('Failed to create dish');
-      const saved = await res.json();
-      if (kind === 'main') setMains((prev) => [...prev, saved]);
-      else setSides((prev) => [...prev, saved]);
-      addToast(`"${saved.name}" added to your library.`, 'success');
-    } catch (err) {
-      console.error(err);
-      addToast('There was a problem saving the dish.', 'error');
-    }
-  };
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      addToast(data.wasUpdated ? 'Community Spotlight updated! 🌍' : 'Your week is live on Community Spotlight! 🌍', 'success');
+      return data;
+    } catch { addToast('Could not share your week.', 'error'); return null; }
+  }, [user, planWithDetails, currentWeekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleUpdateDish = async ({ kind, dish }) => {
-    const path = kind === 'main' ? 'mains' : 'sides';
-    try {
-      const res = await fetch(`${API_BASE}/${path}/${dish.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dish),
-      });
-      if (!res.ok) throw new Error('Failed to update dish');
-      const saved = await res.json();
-      if (kind === 'main') {
-        setMains((prev) => prev.map((m) => (m.id === saved.id ? saved : m)));
-      } else {
-        setSides((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
-      }
-      addToast(`"${saved.name}" updated.`, 'success');
-    } catch (err) {
-      console.error(err);
-      addToast('There was a problem updating the dish.', 'error');
+  const handleCloneSharedWeek = useCallback((sharedEntries) => {
+    const newEntries = (sharedEntries || [])
+      .filter(e => mains.some(m => m.id === e.mainId))
+      .slice(0, 7)
+      .map(e => ({
+        id:      'entry_ui_' + Date.now().toString(36) + Math.random().toString(36).slice(2),
+        mainId:  e.mainId,
+        sideIds: (e.sideIds || []).filter(sid => sides.some(s => s.id === sid)),
+        servings: 4,
+      }));
+    if (!newEntries.length) { addToast('No matching dishes found in your library.', 'error'); return; }
+    if (planEntries.length > 0) {
+      setCloneWeekPending(newEntries);
+      return;
     }
-  };
+    setPlanEntries(newEntries);
+    persistPlan(newEntries);
+    setActiveTab('plan');
+    addToast(`Loaded ${newEntries.length} meal${newEntries.length !== 1 ? 's' : ''} into your week!`, 'success');
+  }, [mains, sides, planEntries]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---- Delete dish (server + library via hook, then prune it from this week's plan) ----
   const handleDeleteDishConfirmed = async () => {
     const { kind, dish } = deleteDialog;
     if (!kind || !dish) return;
-    const path = kind === 'main' ? 'mains' : 'sides';
 
-    try {
-      const res = await fetch(`${API_BASE}/${path}/${dish.id}`, {
-        method: 'DELETE',
-      });
-      if (res.status !== 204 && res.status !== 200) {
-        throw new Error('Failed to delete');
-      }
-      if (kind === 'main') {
-        setMains((prev) => prev.filter((m) => m.id !== dish.id));
-        const updated = planEntries.filter((e) => e.mainId !== dish.id);
-        setPlanEntries(updated);
-        persistPlan(updated);
-      } else {
-        setSides((prev) => prev.filter((s) => s.id !== dish.id));
-        const updated = planEntries.map((e) => ({
-          ...e,
-          sideIds: (e.sideIds || []).filter((id) => id !== dish.id),
-        }));
-        setPlanEntries(updated);
-        persistPlan(updated);
-      }
-      addToast(`"${dish.name}" deleted.`, 'info');
-    } catch (err) {
-      console.error(err);
-      addToast('There was a problem deleting the dish.', 'error');
-    } finally {
-      setDeleteDialog({ open: false, kind: null, dish: null, planWarning: null });
+    const ok = await deleteDish(kind, dish);
+    if (ok) {
+      const updated = kind === 'main'
+        ? planEntries.filter((e) => e.mainId !== dish.id)
+        : planEntries.map((e) => ({
+            ...e,
+            sideIds: (e.sideIds || []).filter((id) => id !== dish.id),
+          }));
+      setPlanEntries(updated);
+      persistPlan(updated);
     }
+    setDeleteDialog({ open: false, kind: null, dish: null, planWarning: null });
   };
 
 const handleRenameMiscItem = async (id, newName) => {
@@ -673,16 +905,6 @@ const handleRenameMiscItem = async (id, newName) => {
   }
 };
 
-
-  const planWithDetails = planEntries
-    .map((entry) => ({
-      ...entry,
-      main: mains.find((m) => m.id === entry.mainId),
-      sides: (entry.sideIds || [])
-        .map((id) => sides.find((s) => s.id === id))
-        .filter(Boolean),
-    }))
-    .filter((entry) => entry.main);
 
   // ---- Dialog helpers ----
   const openCreateDishDialog = (kind = 'main') => {
@@ -741,18 +963,14 @@ const handleRenameMiscItem = async (id, newName) => {
     setDishDialog({ open: false, mode: 'create', kind: 'main', dish: null });
   };
 
-  const ALL_TABS = [
-    { id: 'plan',    label: 'Weekly Plan',  short: 'Plan',    icon: <CalendarIcon size={20} />,     authRequired: false, inTabBar: true  },
-    { id: 'grocery', label: 'Grocery List', short: 'Grocery', icon: <ShoppingCartIcon size={20} />, authRequired: false, inTabBar: true  },
-    { id: 'mains',   label: 'Mains',        short: 'Mains',   icon: <UtensilsIcon size={20} />,     authRequired: false, inTabBar: true  },
-    { id: 'sides',   label: 'Sides',        short: 'Sides',   icon: <BowlIcon size={20} />,         authRequired: false, inTabBar: true  },
-    { id: 'misc',    label: 'Other Items',  short: 'Other',   icon: <PackageIcon size={20} />,      authRequired: false, inTabBar: true  },
-    { id: 'history', label: 'History',      short: 'History', icon: null,                           authRequired: true,  inTabBar: false },
-  ];
-  // TABS = shown in tab bar (desktop) and mobile hamburger menu
-  const TABS = ALL_TABS.filter((t) => t.inTabBar && (!t.authRequired || !isGuest));
-  // All accessible tabs including those only reachable via context menu
-  const ALL_ACCESSIBLE_TABS = ALL_TABS.filter((t) => !t.authRequired || !isGuest);
+  // ── Navigation ────────────────────────────────────────────────────────────
+  // (nav structure + KITCHEN_IDS live in components/AppHeader.jsx)
+
+  // Helper: navigate to a tab and track kitchen sub-tab
+  const navigateTo = (id) => {
+    setActiveTab(id);
+    if (KITCHEN_IDS.has(id)) setLastKitchenTab(id);
+  };
 
   // --- Auth gate ---
   if (authLoading) {
@@ -768,240 +986,79 @@ const handleRenameMiscItem = async (id, newName) => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-50 overflow-x-hidden w-full">
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
 
       {/* Guest banner */}
       {isGuest && (
         <div className="flex items-center justify-between gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-300">
-          <span className="min-w-0">👋 You&apos;re browsing as a guest — your plan is saved locally. Sign in to unlock history, other items, and cloud sync.</span>
-          <button
-            onClick={signIn}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-          >
+          <span className="min-w-0">👋 Browsing as guest — plan saved locally. Sign in to unlock history, other items, and cloud sync.</span>
+          <button onClick={signIn} className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors">
             Sign in
           </button>
         </div>
       )}
 
-      {/* Header */}
-      <header className="relative border-b border-emerald-200/70 bg-emerald-50 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/30">
-        {/* Decorative orb */}
-        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl dark:bg-emerald-400/6" />
-
-        {/* Top bar */}
-        <div className="relative w-full px-4 sm:px-6 py-3 sm:py-5 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-lg sm:text-2xl font-bold tracking-tight flex items-center gap-2.5 text-slate-900 dark:text-slate-50">
-              <span className="text-emerald-600 dark:text-emerald-400">
-                <UtensilsIcon size={22} />
-              </span>
-              <span className="sm:hidden">Simmer</span>
-              <span className="hidden sm:inline">Simmer: The Weekly Meal Planner</span>
-            </h1>
-            <p className="hidden sm:block mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-              Dinner decided, groceries sorted.
-            </p>
-          </div>
-
-          {/* Desktop: user context menu / guest controls */}
-          <div className="hidden sm:flex items-center gap-2">
-            {user ? (
-              /* ── Signed-in: avatar + name → dropdown ── */
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setUserMenuOpen((v) => !v)}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/90 pl-1 pr-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
-                >
-                  {user.avatar
-                    ? <img src={user.avatar} alt={user.name} className="h-6 w-6 rounded-full border border-slate-200 dark:border-slate-700" />
-                    : <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white text-xs font-bold">{user.name?.[0] ?? '?'}</span>
-                  }
-                  <span className="max-w-[120px] truncate">{user.name}</span>
-                  <ChevronDownIcon size={12} />
-                </button>
-
-                {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900 z-50">
-                    <div className="p-1">
-                      <button
-                        type="button"
-                        onClick={() => { setActiveTab('history'); setUserMenuOpen(false); }}
-                        className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <span>🗂️</span>
-                          History
-                        </span>
-                        {savedPlans.length > 0 && (
-                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
-                            {savedPlans.length}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { toggleTheme(); setUserMenuOpen(false); }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-                        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setHelpOpen(true); setUserMenuOpen(false); }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-xs font-semibold leading-none">?</span>
-                        Help
-                      </button>
-                    </div>
-                    <div className="border-t border-slate-100 p-1 dark:border-slate-800">
-                      <button
-                        type="button"
-                        onClick={() => { signOut(); setUserMenuOpen(false); }}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* ── Guest: sign in + theme + help ── */
-              <>
-                <button
-                  type="button"
-                  onClick={signIn}
-                  className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-sm transition-all hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
-                >
-                  Sign in with Google
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm transition-all hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
-                  title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                >
-                  {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHelpOpen(true)}
-                  title="Help"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-sm font-semibold text-slate-500 shadow-sm transition-all hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
-                >
-                  ?
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Mobile: hamburger */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="sm:hidden inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white/90 p-2 text-slate-600 shadow-sm transition-all hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700/80 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
-            aria-label="Menu"
-          >
-            {menuOpen ? <XIcon size={18} /> : <MenuIcon size={18} />}
-          </button>
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="flex items-center gap-2 bg-slate-800 px-4 py-1.5 text-xs font-medium text-slate-200">
+          <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
+          Offline — showing cached data. Changes will sync when you reconnect.
         </div>
+      )}
 
-        {/* Mobile dropdown menu — secondary actions only (tabs are in the bottom nav) */}
-        {menuOpen && (
-          <div className="sm:hidden border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-            {/* History — signed-in users only */}
-            {user && (
-              <div className="px-3 pt-2 pb-1">
-                <button
-                  type="button"
-                  onClick={() => { setActiveTab('history'); setMenuOpen(false); }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    activeTab === 'history'
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400'
-                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900/60'
-                  }`}
-                >
-                  <span className="flex items-center gap-2"><span>🗂️</span> History</span>
-                  {savedPlans.length > 0 && (
-                    <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
-                      {savedPlans.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-            )}
-            <div className={`px-3 py-2 space-y-0.5 ${user ? 'border-t border-slate-100 dark:border-slate-800' : ''}`}>
-              <button
-                type="button"
-                onClick={() => { toggleTheme(); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-900/60"
-              >
-                {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setHelpOpen(true); setMenuOpen(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-900/60"
-              >
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-xs font-semibold leading-none">?</span>
-                Help
-              </button>
-              <p className="px-3 py-1.5 text-xs text-slate-400 dark:text-slate-500">
-                {planWithDetails.length} / 7 dinners planned
-              </p>
-            </div>
-            <div className="border-t border-slate-100 px-3 py-2 dark:border-slate-800">
-              {user ? (
-                <button
-                  type="button"
-                  onClick={() => { signOut(); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                >
-                  Sign out
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => { signIn(); setMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-                >
-                  Sign in with Google
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </header>
+      <AppHeader
+        activeTab={activeTab}
+        onNavigate={navigateTo}
+        user={user}
+        isGuest={isGuest}
+        isAdmin={isAdmin}
+        savedPlansCount={savedPlans.length}
+        pantryCount={pantryItems.length}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenHelp={() => setHelpOpen(true)}
+        pwaInstallable={pwaInstallable}
+        onInstallApp={handleInstallApp}
+        onSignIn={signIn}
+        onSignOut={signOut}
+      />
 
-      {/* Main content shell */}
-      <div className="flex-1 w-full px-4 sm:px-6 pt-4 sm:pt-5 pb-24 sm:pb-5 flex flex-col gap-5">
-        {/* Desktop tabs */}
-        <nav className="hidden sm:flex items-center justify-between gap-4">
-          <div className="flex items-center gap-0.5 rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800/60">
-            {TABS.map((tab) => (
+      {/* Desktop: big icon nav strip under the header */}
+      <DesktopIconNav
+        activeTab={activeTab}
+        onNavigate={navigateTo}
+        lastKitchenTab={lastKitchenTab}
+      />
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-4 pb-24 md:pb-6 flex flex-col gap-4">
+
+
+        {/* Kitchen sub-tab strip — shown whenever a kitchen tab is active */}
+        {KITCHEN_IDS.has(activeTab) && (
+          <div className="flex max-w-xl gap-1 rounded-xl bg-slate-200/60 dark:bg-slate-800/50 p-1">
+            {[
+              { id: 'mains',   label: 'Mains',       icon: <UtensilsIcon size={14} /> },
+              { id: 'sides',   label: 'Sides',        icon: <BowlIcon size={14} />     },
+              { id: 'misc',    label: 'Other Items',  icon: <PackageIcon size={14} />  },
+              { id: 'pantry',  label: 'Pantry',       icon: <PantryIcon size={14} />   },
+            ].map((sub) => (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-all duration-150
-                  ${activeTab === tab.id
-                    ? 'bg-white text-emerald-600 ring-1 ring-slate-300 shadow-md dark:bg-slate-700 dark:text-emerald-400 dark:ring-slate-600 dark:shadow-slate-900/60'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200'
-                  }`}
+                key={sub.id}
+                type="button"
+                onClick={() => navigateTo(sub.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-all duration-150 ${
+                  activeTab === sub.id
+                    ? 'bg-white text-emerald-600 shadow-sm dark:bg-slate-700 dark:text-emerald-400'
+                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
               >
-                <span className="shrink-0 [&_svg]:h-4 [&_svg]:w-4">{tab.icon}</span>
-                <span>{tab.label}</span>
+                <span className="shrink-0">{sub.icon}</span>
+                <span>{sub.label}</span>
               </button>
             ))}
           </div>
-          <span className="shrink-0 text-xs font-medium text-slate-400 dark:text-slate-500">
-            {planWithDetails.length} / 7 dinners
-          </span>
-        </nav>
-
+        )}
 
         {/* Error */}
         {error && (
@@ -1072,12 +1129,17 @@ const handleRenameMiscItem = async (id, newName) => {
                   dishes={activeTab === 'mains' ? mains : sides}
                   planEntries={planEntries}
                   planWithDetails={planWithDetails}
+                  monthPlansData={monthPlansData}
                   viewMode={viewMode}
                   canEditDish={isGuest ? null : (dish) => dish.canEdit === true}
                   onAddMainToPlan={handleAddMainToPlan}
                   onAttachSide={handleAttachSide}
                   onEditDish={openEditDishDialog}
                   onDeleteDish={openDeleteDishDialog}
+                  onSaveDish={handleToggleSaveDish}
+                  onSubmitCommunity={isGuest ? null : handleSubmitToCommunity}
+                  onAddNew={isGuest ? null : () => openCreateDishDialog(activeTab === 'mains' ? 'main' : 'side')}
+                  lastCookedMap={lastCookedMap}
                 />
               </section>
                ) : activeTab === 'misc' ? (
@@ -1090,6 +1152,35 @@ const handleRenameMiscItem = async (id, newName) => {
                   onDeleteItem={isGuest ? null : handleDeleteMiscInventoryItem}
                   onOpenMiscDialog={isGuest ? null : openMiscDialog}
                 />
+              </section>
+            ) : activeTab === 'pantry' ? (
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
+                <div className="mb-5">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <span className="text-slate-400 dark:text-slate-500"><PantryIcon size={18} /></span>
+                    Pantry
+                  </h2>
+                </div>
+                <PantryTab
+                  items={pantryItems}
+                  onAdd={handleAddToPantry}
+                  onRemove={handleRemoveFromPantry}
+                />
+              </section>
+            ) : activeTab === 'marketplace' ? (
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
+                <MarketplaceTab
+                  user={user}
+                  planWithDetails={planWithDetails}
+                  currentWeekStart={currentWeekStart}
+                  weekLabel={formatWeekRange(currentWeekStart)}
+                  onCloneWeek={handleCloneSharedWeek}
+                  onAddToast={addToast}
+                />
+              </section>
+            ) : activeTab === 'admin' && isAdmin ? (
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
+                <AdminPage currentUser={user} />
               </section>
             ) : activeTab === 'history' ? (
               <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/70">
@@ -1137,6 +1228,26 @@ const handleRenameMiscItem = async (id, newName) => {
                         Clear checked ({checkedGroceryKeys.length})
                       </button>
                     )}
+                    {allGroceryItems.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-violet-300 hover:text-violet-700 transition-colors dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-violet-700 dark:hover:text-violet-400"
+                          onClick={handleCopyGroceryList}
+                          title="Copy list as text for sharing"
+                        >
+                          📋 Copy list
+                        </button>
+                        <button
+                          type="button"
+                          className="print:hidden inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-800 transition-colors dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
+                          onClick={() => window.print()}
+                          title="Print grocery list"
+                        >
+                          🖨️ Print
+                        </button>
+                      </>
+                    )}
                     {!shoppingMode && (
                       <>
                         <button
@@ -1157,13 +1268,40 @@ const handleRenameMiscItem = async (id, newName) => {
                     )}
                   </div>
                 </div>
+                {/* ── Week meal-context strip ── */}
+                {planWithDetails.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-1.5">
+                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].slice(0, planWithDetails.length).map((day, i) => {
+                      const entry = planWithDetails[i];
+                      return (
+                        <span
+                          key={entry.id}
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] dark:border-slate-700/60 dark:bg-slate-800/60"
+                        >
+                          <span className="text-slate-400 dark:text-slate-500 font-medium">{day}</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-semibold truncate max-w-[96px]">
+                            {entry.type === 'out' ? '🚫 Out' : (entry.main?.name ?? '—')}
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <GroceryList
                   items={allGroceryItems}
                   onRemoveItem={handleDismissGroceryItem}
                   onRemoveMiscItem={handleRemoveMiscGroceryItem}
+                  onAddCustomItem={handleAddCustomListItem}
+                  onRemoveCustomItem={handleRemoveCustomListItem}
                   shoppingMode={shoppingMode}
                   checkedKeys={checkedGroceryKeys}
                   onToggleChecked={handleToggleCheckedGrocery}
+                  onBatchCheck={handleBatchCheckGrocery}
+                  onExitShopMode={handleExitShopMode}
+                  pantryItems={pantryItems}
+                  onAddToPantry={handleAddToPantry}
+                  onRemoveFromPantry={handleRemoveFromPantry}
+                  onNavigateToPantry={() => navigateTo('pantry')}
                 />
               </section>
             ) : (
@@ -1172,18 +1310,44 @@ const handleRenameMiscItem = async (id, newName) => {
                   entries={planWithDetails}
                   allMains={mains}
                   allSides={sides}
-                  onAddMainToPlan={handleAddMainToPlan}
-                  onRemoveEntry={handleRemoveEntryFromPlan}
-                  onAttachSide={handleAttachSide}
-                  onRemoveSide={handleRemoveSide}
-                  onSavePlan={!isGuest ? () => setSavePlanDialogOpen(true) : null}
-                  onReorderEntries={handleReorderPlan}
+                  weekStart={currentWeekStart}
+                  isReadOnlyWeek={isReadOnlyWeek}
+                  onPrevWeek={handlePrevWeek}
+                  onNextWeek={handleNextWeek}
+                  onGoToCurrentWeek={handleGoToCurrentWeek}
+                  onAddMainToPlan={isReadOnlyWeek ? null : handleAddMainToPlan}
+                  onRemoveEntry={isReadOnlyWeek ? null : handleRemoveEntryFromPlan}
+                  onAttachSide={isReadOnlyWeek ? null : handleAttachSide}
+                  onRemoveSide={isReadOnlyWeek ? null : handleRemoveSide}
+                  onSavePlan={isReadOnlyWeek || isGuest ? null : () => setSavePlanDialogOpen(true)}
+                  onReorderEntries={isReadOnlyWeek ? null : handleReorderPlan}
+                  onRandomizeWeek={isGuest ? null : handleRandomizeWeek}
+                  onUpdateServings={isReadOnlyWeek ? null : handleUpdateServings}
+                  onRateDish={isGuest ? null : handleRateDish}
+                  onShareToMarketplace={isGuest || isReadOnlyWeek ? null : handleShareWeekToMarketplace}
+                  onAddOutDay={isReadOnlyWeek ? null : handleAddOutDay}
+                  onCopyPreviousWeek={isGuest || isReadOnlyWeek || !prevWeekHasMeals ? null : handleCopyPreviousWeek}
+                  onUpdatePlanNote={isReadOnlyWeek ? null : handleUpdatePlanNote}
+                  monthPlansData={monthPlansData}
+                  onNavigateToWeek={(weekIso) => { handleNavigateToWeek(weekIso); fetchMonthPlans(weekIso); }}
+                  onReorderMonthEntry={handleReorderMonthEntry}
+                  recentMealIds={recentMealIds}
+                  savedPlans={isGuest ? [] : savedPlans}
+                  onLoadTemplate={isGuest ? null : handleReloadPlan}
                 />
               </section>
             )}
           </main>
         )}
       </div>
+
+      {/* ── Onboarding wizard ── shown to new users with an empty plan ── */}
+      {!isOnboarded && !loading && mains.length > 0 && planEntries.length === 0 && (
+        <OnboardingWizard
+          allMains={mains}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
 
       {/* Dialogs */}
       {dishDialog.open && (
@@ -1217,7 +1381,7 @@ const handleRenameMiscItem = async (id, newName) => {
 
 {savePlanDialogOpen && (
   <SavePlanDialog
-    defaultName={`Week of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
+    defaultName={`Week of ${formatWeekRange(currentWeekStart)}`}
     onCancel={() => setSavePlanDialogOpen(false)}
     onSave={handleSavePlan}
   />
@@ -1230,6 +1394,39 @@ const handleRenameMiscItem = async (id, newName) => {
     onCancel={() => setReloadConfirmPlan(null)}
     onConfirm={handleReloadConfirmed}
     confirmLabel="Reload"
+  />
+)}
+
+{copyWeekPending && (
+  <ConfirmDialog
+    title="Copy last week"
+    message="Replace your current plan with last week's meals?"
+    confirmLabel="Replace"
+    confirmVariant="secondary"
+    onCancel={() => setCopyWeekPending(null)}
+    onConfirm={() => {
+      setPlanEntries(copyWeekPending);
+      persistPlan(copyWeekPending);
+      setCopyWeekPending(null);
+      addToast('Last week copied as a template! 📋', 'success');
+    }}
+  />
+)}
+
+{cloneWeekPending && (
+  <ConfirmDialog
+    title="Load community week"
+    message="Replace your current plan with this community week's meals?"
+    confirmLabel="Replace"
+    confirmVariant="secondary"
+    onCancel={() => setCloneWeekPending(null)}
+    onConfirm={() => {
+      setPlanEntries(cloneWeekPending);
+      persistPlan(cloneWeekPending);
+      setCloneWeekPending(null);
+      setActiveTab('plan');
+      addToast(`Loaded ${cloneWeekPending.length} meal${cloneWeekPending.length !== 1 ? 's' : ''} into your week!`, 'success');
+    }}
   />
 )}
 
@@ -1255,35 +1452,15 @@ const handleRenameMiscItem = async (id, newName) => {
 )}
 
 
-      {/* Mobile bottom navigation bar */}
-      <nav
-        className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      >
-        <div className="flex h-16">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => { setActiveTab(tab.id); setMenuOpen(false); }}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors active:bg-slate-50 dark:active:bg-slate-900 ${
-                activeTab === tab.id
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-slate-400 dark:text-slate-500'
-              }`}
-            >
-              <span className={`transition-transform ${activeTab === tab.id ? 'scale-110' : ''}`}>
-                {tab.icon}
-              </span>
-              <span className="text-[10px] font-medium">{tab.short}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
+      <MobileBottomNav
+        activeTab={activeTab}
+        onNavigate={navigateTo}
+        lastKitchenTab={lastKitchenTab}
+      />
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-
       {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
+
     </div>
   );
 }

@@ -1,0 +1,32 @@
+{
+  "name": "What's Simmering? — Weekly Meal Planner",
+  "short_name": "Simmering",
+  "description": "Dinner decided, groceries sorted.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#10b981",
+  "categories": ["food", "lifestyle", "productivity"],
+  "icons": [
+    { "src": "/pwa-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/favicon.svg", "sizes": "any",     "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Grocery List",
+      "short_name": "Groceries",
+      "description": "Open this week's grocery list",
+      "url": "/?tab=grocery",
+      "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Weekly Plan",
+      "short_name": "Plan",
+      "description": "Open this week's dinner plan",
+      "url": "/?tab=plan",
+      "icons": [{ "src": "/pwa-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

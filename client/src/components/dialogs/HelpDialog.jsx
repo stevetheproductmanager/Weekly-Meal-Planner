@@ -9,7 +9,7 @@ const SECTIONS = [
     id: 'overview',
     title: '✦ Overview',
     intro:
-      'Simmer answers the age-old question: "what\'s for dinner tonight?" — and makes sure you only go grocery shopping once. Build a library of meals, plan your week, and let Simmer build your grocery list automatically.',
+      'What\'s Simmering? answers the age-old question: "what\'s for dinner tonight?" — and makes sure you only go grocery shopping once. Build a library of meals, plan your week, and let the app build your grocery list automatically.',
     items: [
       {
         heading: 'The basic workflow',
@@ -309,7 +309,7 @@ function HelpDialog({ onClose }) {
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Help & Guide</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">How to get the most out of Simmer</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">How to get the most out of What's Simmering?</p>
           </div>
           <button
             type="button"

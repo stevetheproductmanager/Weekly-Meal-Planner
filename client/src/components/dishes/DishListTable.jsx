@@ -1,5 +1,5 @@
 import React from 'react';
-import { PencilIcon, TrashIcon, ExternalLinkIcon, CalendarPlusIcon, LinkIcon } from '../Icons';
+import { PencilIcon, TrashIcon, ExternalLinkIcon, CalendarPlusIcon, LinkIcon, HeartIcon, ShareCommunityIcon } from '../Icons';
 
 function DishListTable({
   kind,
@@ -10,6 +10,8 @@ function DishListTable({
   onAttachSideToMeal,
   onEditDish,
   onDeleteDish,
+  onSaveDish,
+  onSubmitCommunity,
 }) {
   if (!dishes.length) {
     return (
@@ -49,7 +51,7 @@ function DishListTable({
                   <span>{dish.name}</span>
                   {dish.ownerId
                     ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
-                    : <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Simmer</span>
+                    : <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Library</span>
                   }
                   {dish.recipeUrl && (
                     <a
@@ -65,6 +67,16 @@ function DishListTable({
                   {kind === 'side' && inPlanIds.has(dish.id) && (
                     <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                       In plan
+                    </span>
+                  )}
+                  {dish.saveCount > 0 && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-pink-50 px-1.5 py-0.5 text-[10px] font-medium text-pink-500 dark:bg-pink-950/30 dark:text-pink-400">
+                      ♥ {dish.saveCount}
+                    </span>
+                  )}
+                  {dish.myRating > 0 && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-950/30 dark:text-amber-400" title={`Your rating: ${dish.myRating}/5`}>
+                      {'★'.repeat(dish.myRating)}
                     </span>
                   )}
                 </div>
@@ -110,6 +122,30 @@ function DishListTable({
                       }`}
                     >
                       <CalendarPlusIcon size={12} />
+                    </button>
+                  )}
+                  {onSaveDish && (
+                    <button
+                      type="button"
+                      onClick={() => onSaveDish(dish.id)}
+                      title={dish.savedByMe ? 'Remove from saved' : 'Save dish'}
+                      className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-pink-400/60 ${
+                        dish.savedByMe
+                          ? 'text-pink-500 dark:text-pink-400'
+                          : 'text-slate-400 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-950/30'
+                      }`}
+                    >
+                      <HeartIcon size={13} filled={dish.savedByMe} />
+                    </button>
+                  )}
+                  {onSubmitCommunity && dish.ownerId && !dish.isShared && (
+                    <button
+                      type="button"
+                      onClick={() => onSubmitCommunity(dish.id)}
+                      title="Share with community"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors focus:outline-none focus:ring-1 focus:ring-violet-400/60"
+                    >
+                      <ShareCommunityIcon size={13} />
                     </button>
                   )}
                   {onEditDish && canEditDish?.(dish) && (

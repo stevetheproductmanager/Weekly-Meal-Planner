@@ -21,6 +21,7 @@ const dishSchema = new mongoose.Schema({
   isShared:   { type: Boolean, default: false, index: true },
   // null for shared dishes, userId for custom
   ownerId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
+  saveCount:  { type: Number, default: 0 },
   createdAt:  { type: Date, default: Date.now },
 });
 

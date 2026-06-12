@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { XIcon } from '../Icons';
 
 function SavePlanDialog({ defaultName, onCancel, onSave }) {
   const [name, setName] = useState(defaultName || '');
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onCancel(); };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onCancel]);
+
+  // Auto-focus and select the pre-filled text so typing immediately replaces it
+  useEffect(() => {
+    inputRef.current?.select();
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -56,11 +62,13 @@ function SavePlanDialog({ defaultName, onCancel, onSave }) {
           style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
         >
           <input
+            ref={inputRef}
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Week of May 15"
             autoComplete="off"
+            autoFocus
             className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
           />
           <div className="flex justify-end gap-2">

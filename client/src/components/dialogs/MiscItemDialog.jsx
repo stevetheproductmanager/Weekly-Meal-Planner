@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { XIcon } from '../Icons';
 
 function MiscItemDialog({ mode = 'create', initialName = '', onCancel, onSave }) {
   const isEdit = mode === 'edit';
   const [name, setName] = useState(initialName || '');
+  const inputRef = useRef(null);
 
   useEffect(() => {
     setName(initialName || '');
   }, [initialName, mode]);
+
+  // Auto-focus and select existing text so the user can type immediately
+  useEffect(() => {
+    inputRef.current?.select();
+  }, []);
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onCancel(); };
@@ -61,11 +67,13 @@ function MiscItemDialog({ mode = 'create', initialName = '', onCancel, onSave })
               Item name
             </label>
             <input
+              ref={inputRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. soap, foil, snacks…"
               autoComplete="off"
+              autoFocus
               className="w-full bg-white border border-slate-300 rounded-md px-3 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
             />
           </div>

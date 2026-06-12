@@ -11,32 +11,52 @@ function InventoryTab({
   dishes = [],
   planEntries = [],
   planWithDetails = [],
+  monthPlansData = {},  // { 'YYYY-MM-DD': [{ mainId, sideIds }...] }
   viewMode,
   canEditDish = null, // (dish) => bool  —  null means nobody can edit
   onAddMainToPlan,
   onAttachSide,
   onEditDish,
   onDeleteDish,
+  onSaveDish,
+  onSubmitCommunity,
+  onAddNew = null,    // optional CTA for empty-collection state
+  lastCookedMap = {},
 }) {
   const [attachingSide, setAttachingSide] = useState(null);
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState('');
+  const [filterOnPlan, setFilterOnPlan] = useState(false);
   const [sortBy, setSortBy] = useState('az');
   const [pageSize, setPageSize] = useState(48);
   const [page, setPage] = useState(1);
 
   // Reset to page 1 whenever filters/sort/page-size change
-  useEffect(() => { setPage(1); }, [search, filterTag, sortBy, pageSize]);
+  useEffect(() => { setPage(1); }, [search, filterTag, filterOnPlan, sortBy, pageSize]);
 
   const allTags = Array.from(
     new Set(dishes.flatMap((d) => (Array.isArray(d.tags) ? d.tags : [])))
-  );
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Build IDs for dishes that appear anywhere in the current week OR any loaded monthly week.
+  const allMonthEntries = Object.values(monthPlansData).flat();
+  const mainIdsInPlan = new Set([
+    ...planEntries.map((e) => e.mainId),
+    ...allMonthEntries.map((e) => e.mainId),
+  ].filter(Boolean));
+  const sidesInPlanIds = new Set([
+    ...planWithDetails.flatMap((e) => e.sideIds || []),
+    ...allMonthEntries.flatMap((e) => e.sideIds || []),
+  ].filter(Boolean));
 
   const filtered = dishes
     .filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
       const matchesTag = !filterTag || (Array.isArray(item.tags) && item.tags.includes(filterTag));
-      return matchesSearch && matchesTag;
+      const matchesPlan = !filterOnPlan || (
+        kind === 'main' ? mainIdsInPlan.has(item.id) : sidesInPlanIds.has(item.id)
+      );
+      return matchesSearch && matchesTag && matchesPlan;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -47,6 +67,7 @@ function InventoryTab({
           const catCmp = (a.category || '').localeCompare(b.category || '');
           return catCmp !== 0 ? catCmp : a.name.localeCompare(b.name);
         }
+        case 'saved': return (b.saveCount || 0) - (a.saveCount || 0);
         default: return 0;
       }
     });
@@ -58,8 +79,37 @@ function InventoryTab({
     ? filtered
     : filtered.slice((safePage - 1) * effectivePageSize, safePage * effectivePageSize);
 
-  const mainIdsInPlan = new Set(planEntries.map((e) => e.mainId));
-  const sidesInPlanIds = new Set(planWithDetails.flatMap((e) => e.sideIds || []));
+  const emptyState = (
+    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center col-span-full">
+      <span className="text-5xl select-none">{kind === 'main' ? '🍽️' : '🥗'}</span>
+      <div>
+        <p className="font-medium text-slate-700 dark:text-slate-300">
+          {dishes.length === 0
+            ? `No ${kind === 'main' ? 'main dishes' : 'sides'} yet`
+            : filterOnPlan
+              ? `No ${kind === 'main' ? 'mains' : 'sides'} on your plan yet`
+              : `No ${kind === 'main' ? 'mains' : 'sides'} match your search`}
+        </p>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+          {dishes.length === 0
+            ? `Add your first ${kind === 'main' ? 'main dish' : 'side dish'} to build your kitchen.`
+            : filterOnPlan
+              ? 'Add meals to your weekly or monthly plan and they\'ll appear here.'
+              : 'Try a different search term or clear your filters.'}
+        </p>
+      </div>
+      {dishes.length === 0 && onAddNew && (
+        <button
+          type="button"
+          onClick={onAddNew}
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors"
+        >
+          <span className="text-base leading-none">＋</span>
+          Add {kind === 'main' ? 'main dish' : 'side dish'}
+        </button>
+      )}
+    </div>
+  );
 
   const renderContent = () => {
     if (viewMode === 'cards') {
@@ -75,13 +125,12 @@ function InventoryTab({
               onAttachToMeal={kind === 'side' ? () => setAttachingSide(dish) : undefined}
               onEdit={canEditDish?.(dish) ? () => onEditDish(kind, dish) : null}
               onDelete={canEditDish?.(dish) ? () => onDeleteDish(kind, dish) : null}
+              onSave={onSaveDish ? () => onSaveDish(kind, dish.id) : null}
+              onSubmitCommunity={onSubmitCommunity && canEditDish?.(dish) ? () => onSubmitCommunity(kind, dish.id) : null}
+              lastCooked={lastCookedMap[dish.id]}
             />
           ))}
-          {!filtered.length && (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              No {kind === 'main' ? 'mains' : 'sides'} match your filters yet.
-            </p>
-          )}
+          {!filtered.length && emptyState}
         </div>
       );
     }
@@ -96,6 +145,8 @@ function InventoryTab({
         onAttachSideToMeal={kind === 'side' ? (dish) => setAttachingSide(dish) : undefined}
         onEditDish={canEditDish ? onEditDish : null}
         onDeleteDish={canEditDish ? onDeleteDish : null}
+        onSaveDish={onSaveDish ? (dishId) => onSaveDish(kind, dishId) : null}
+        onSubmitCommunity={onSubmitCommunity ? (dishId) => onSubmitCommunity(kind, dishId) : null}
       />
     );
   };
@@ -189,6 +240,25 @@ function InventoryTab({
           )}
         </div>
 
+        {/* On-plan filter chip */}
+        <button
+          type="button"
+          onClick={() => setFilterOnPlan((v) => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
+            filterOnPlan
+              ? 'border-emerald-500 bg-emerald-500 text-white'
+              : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-slate-500'
+          }`}
+        >
+          <span>📅</span>
+          On plan
+          {filterOnPlan && (
+            <span className="opacity-80">
+              · {kind === 'main' ? mainIdsInPlan.size : sidesInPlanIds.size}
+            </span>
+          )}
+        </button>
+
         {/* Sort */}
         <select
           value={sortBy}
@@ -199,6 +269,7 @@ function InventoryTab({
           <option value="za">Z → A</option>
           <option value="newest">Newest first</option>
           <option value="category">By category</option>
+          <option value="saved">Most saved</option>
         </select>
 
         {/* Tag filter */}

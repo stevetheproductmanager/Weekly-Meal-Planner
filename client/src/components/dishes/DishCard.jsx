@@ -1,7 +1,15 @@
 import React from 'react';
-import { PencilIcon, TrashIcon, ExternalLinkIcon, CalendarPlusIcon, LinkIcon } from '../Icons';
+import { PencilIcon, TrashIcon, ExternalLinkIcon, CalendarPlusIcon, LinkIcon, HeartIcon, ShareCommunityIcon } from '../Icons';
 
-function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit, onDelete }) {
+function relativeWeeks(dateStr) {
+  const weeks = Math.floor((Date.now() - new Date(dateStr)) / (7 * 24 * 60 * 60 * 1000));
+  if (weeks < 1) return 'this week';
+  if (weeks === 1) return 'last week';
+  if (weeks < 52) return `${weeks}w ago`;
+  return `${Math.floor(weeks / 52)}y ago`;
+}
+
+function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit, onDelete, onSave, onSubmitCommunity, lastCooked }) {
   const canAdd = !!onPrimaryAction;
 
   return (
@@ -19,7 +27,7 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
             )}
             {dish.ownerId
               ? <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
-              : <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Simmer</span>
+              : <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Library</span>
             }
             {dish.recipeUrl && (
               <a
@@ -37,9 +45,50 @@ function DishCard({ dish, kind, inPlan, onPrimaryAction, onAttachToMeal, onEdit,
                 In plan
               </span>
             )}
+            {dish.saveCount > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-pink-50 px-1.5 py-0.5 text-[10px] font-medium text-pink-500 dark:bg-pink-950/30 dark:text-pink-400">
+                ♥ {dish.saveCount}
+              </span>
+            )}
+            {dish.myRating > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-950/30 dark:text-amber-400" title={`Your rating: ${dish.myRating}/5`}>
+                {'★'.repeat(dish.myRating)}{'☆'.repeat(5 - dish.myRating)}
+              </span>
+            )}
+            {lastCooked && (
+              <span className="inline-flex items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-400 dark:bg-slate-800/60 dark:text-slate-500" title={`Last cooked: ${new Date(lastCooked).toLocaleDateString()}`}>
+                🕐 {relativeWeeks(lastCooked)}
+              </span>
+            )}
           </div>
         </div>
         <div className="card-icons flex gap-1 shrink-0">
+          {/* Save / bookmark */}
+          {onSave && (
+            <button
+              type="button"
+              onClick={onSave}
+              title={dish.savedByMe ? 'Remove from saved' : 'Save dish'}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-pink-400/60 ${
+                dish.savedByMe
+                  ? 'text-pink-500 dark:text-pink-400'
+                  : 'text-slate-400 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-950/30 dark:hover:text-pink-400'
+              }`}
+            >
+              <HeartIcon size={14} filled={dish.savedByMe} />
+            </button>
+          )}
+          {/* Submit to community */}
+          {onSubmitCommunity && dish.ownerId && !dish.isShared && (
+            <button
+              type="button"
+              onClick={onSubmitCommunity}
+              title="Share with community"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/30 dark:hover:text-violet-400 transition-colors focus:outline-none focus:ring-1 focus:ring-violet-400/60"
+            >
+              <ShareCommunityIcon size={14} />
+            </button>
+          )}
           {kind === 'side' && onAttachToMeal && (
             <button
               type="button"

@@ -10,6 +10,7 @@ const VARIANTS = {
       </svg>
     ),
     bar: 'bg-emerald-400 dark:bg-emerald-500',
+    action: 'text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100',
   },
   error: {
     container: 'border-red-200 bg-red-50 text-red-900 dark:border-red-700/60 dark:bg-red-950/90 dark:text-red-100',
@@ -21,6 +22,7 @@ const VARIANTS = {
       </svg>
     ),
     bar: 'bg-red-400 dark:bg-red-500',
+    action: 'text-red-700 hover:text-red-900 dark:text-red-300 dark:hover:text-red-100',
   },
   info: {
     container: 'border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-700/60 dark:bg-blue-950/90 dark:text-blue-100',
@@ -32,18 +34,28 @@ const VARIANTS = {
       </svg>
     ),
     bar: 'bg-blue-400 dark:bg-blue-500',
+    action: 'text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-100',
   },
 };
 
-const DURATION = 4000;
+const DEFAULT_DURATION = 4000;
 
-export function Toast({ id, message, type = 'info', onDismiss }) {
+/**
+ * @param {object} props
+ * @param {string}   props.id
+ * @param {string}   props.message
+ * @param {'success'|'error'|'info'} [props.type]
+ * @param {{ label: string, onClick: () => void }} [props.action]  optional action button
+ * @param {number}   [props.duration]  auto-dismiss ms (default 4000)
+ * @param {Function} props.onDismiss
+ */
+export function Toast({ id, message, type = 'info', action, duration = DEFAULT_DURATION, onDismiss }) {
   const v = VARIANTS[type] ?? VARIANTS.info;
 
   useEffect(() => {
-    const t = setTimeout(() => onDismiss(id), DURATION);
+    const t = setTimeout(() => onDismiss(id), duration);
     return () => clearTimeout(t);
-  }, [id, onDismiss]);
+  }, [id, onDismiss, duration]);
 
   return (
     <div
@@ -53,11 +65,23 @@ export function Toast({ id, message, type = 'info', onDismiss }) {
       {/* Progress bar */}
       <div
         className={`absolute bottom-0 left-0 h-0.5 ${v.bar} toast-progress`}
-        style={{ animationDuration: `${DURATION}ms` }}
+        style={{ animationDuration: `${duration}ms` }}
       />
 
       <span className="mt-0.5 shrink-0">{v.icon}</span>
       <p className="flex-1 text-sm font-medium leading-snug">{message}</p>
+
+      {/* Optional action button (e.g. Undo) */}
+      {action && (
+        <button
+          type="button"
+          onClick={() => { action.onClick(); onDismiss(id); }}
+          className={`shrink-0 mt-0.5 text-xs font-bold uppercase tracking-wide underline underline-offset-2 transition-opacity hover:opacity-100 opacity-80 ${v.action}`}
+        >
+          {action.label}
+        </button>
+      )}
+
       <button
         type="button"
         onClick={() => onDismiss(id)}
@@ -72,7 +96,7 @@ export function Toast({ id, message, type = 'info', onDismiss }) {
 export function ToastContainer({ toasts, onDismiss }) {
   if (!toasts.length) return null;
   return (
-    <div className="hidden sm:flex fixed bottom-5 right-5 z-[200] w-80 flex-col gap-2 pointer-events-none">
+    <div className="flex fixed bottom-5 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-5 z-[200] w-[calc(100vw-2rem)] max-w-sm flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto">
           <Toast {...t} onDismiss={onDismiss} />

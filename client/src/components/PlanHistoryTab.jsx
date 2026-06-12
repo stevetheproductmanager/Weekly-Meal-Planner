@@ -17,7 +17,7 @@ function PlanHistoryTab({ savedPlans, onReload, onDelete }) {
   if (!savedPlans.length) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        No saved plans yet. Use &ldquo;Save this week&rdquo; on the Weekly Plan tab to capture a snapshot.
+        No saved plans yet. Use &ldquo;Save plan&rdquo; on the Weekly Plan tab to capture a snapshot.
       </p>
     );
   }

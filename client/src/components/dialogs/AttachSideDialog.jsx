@@ -45,7 +45,7 @@ function AttachSideDialog({ side, planEntries, onAttach, onClose }) {
           </button>
         </div>
 
-        {planEntries.length === 0 ? (
+        {planEntries.filter(e => e.type !== 'out').length === 0 ? (
           <p
             className="px-4 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}
@@ -57,8 +57,10 @@ function AttachSideDialog({ side, planEntries, onAttach, onClose }) {
             className="overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800"
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
-            {planEntries.map((entry, index) => {
+            {planEntries.filter(e => e.type !== 'out').map((entry, index) => {
               const alreadyAttached = (entry.sideIds || []).includes(side.id);
+              // Re-derive the original day index from the full planEntries array
+              const dayIndex = planEntries.indexOf(entry);
               return (
                 <li key={entry.id}>
                   <button
@@ -73,7 +75,7 @@ function AttachSideDialog({ side, planEntries, onAttach, onClose }) {
                   >
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block">
-                        {DAYS[index]}
+                        {DAYS[dayIndex]}
                       </span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">
                         {entry.main?.name}

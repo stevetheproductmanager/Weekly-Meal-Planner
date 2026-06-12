@@ -1,9 +1,15 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 function ReplaceMealDialog({ incomingDish, currentEntries, onReplace, onClose }) {
   const overlayRef = useRef(null);
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
 
   return (
     <div
@@ -54,18 +60,24 @@ function ReplaceMealDialog({ incomingDish, currentEntries, onReplace, onClose })
                 {/* Meal info */}
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                    {entry.main?.name}
+                    {entry.type === 'out' ? (entry.label || 'Eating out') : entry.main?.name}
                   </span>
                   <span className="flex items-center gap-1.5 mt-0.5">
-                    {entry.main?.category && (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {entry.main.category}
-                      </span>
-                    )}
-                    {entry.main && (
-                      entry.main.ownerId
-                        ? <span className="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
-                        : <span className="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Simmer</span>
+                    {entry.type === 'out' ? (
+                      <span className="text-xs text-slate-400 dark:text-slate-500 italic">No meal — eating out</span>
+                    ) : (
+                      <>
+                        {entry.main?.category && (
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {entry.main.category}
+                          </span>
+                        )}
+                        {entry.main && (
+                          entry.main.ownerId
+                            ? <span className="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">Community</span>
+                            : <span className="inline-flex items-center rounded-full bg-sky-100 px-1.5 py-px text-[10px] font-medium text-sky-600 dark:bg-sky-900/40 dark:text-sky-400">Library</span>
+                        )}
+                      </>
                     )}
                   </span>
                 </span>
