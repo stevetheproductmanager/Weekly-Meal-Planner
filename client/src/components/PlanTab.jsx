@@ -67,6 +67,7 @@ const NAV_BTN = 'inline-flex h-7 w-7 items-center justify-center rounded-full bo
 function PlanTab({
   entries, allMains, allSides,
   weekStart, isReadOnlyWeek,
+  isGuest = false,
   onPrevWeek, onNextWeek, onGoToCurrentWeek,
   onAddMainToPlan, onRemoveEntry, onAttachSide, onRemoveSide, onSavePlan, onReorderEntries,
   onRandomizeWeek,
@@ -138,28 +139,32 @@ function PlanTab({
       {/* ── Single unified nav row ──────────────────────────────────────── */}
       <div className="flex items-center gap-2 mb-3">
 
-        {/* Left: Week / Month view toggle */}
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 dark:border-slate-700/60 dark:bg-slate-800/60 shrink-0">
-          {[['week','Week'],['month','Month']].map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setPlanView(id)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-all duration-150 ${
-                planView === id
-                  ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-slate-100'
-                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Left: Week / Month view toggle — guests have a single rolling week */}
+        {!isGuest && (
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 dark:border-slate-700/60 dark:bg-slate-800/60 shrink-0">
+            {[['week','Week'],['month','Month']].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPlanView(id)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all duration-150 ${
+                  planView === id
+                    ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-slate-100'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Centre: ‹  Title · badge  › */}
         <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0">
-          <button type="button" onClick={prevAction} className={NAV_BTN}
-            title={planView === 'week' ? 'Previous week' : 'Previous 4 weeks'}>‹</button>
+          {!isGuest && (
+            <button type="button" onClick={prevAction} className={NAV_BTN}
+              title={planView === 'week' ? 'Previous week' : 'Previous 4 weeks'}>‹</button>
+          )}
 
           <div className="flex flex-col items-center min-w-0 px-0.5">
             <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[180px]">
@@ -199,8 +204,10 @@ function PlanTab({
             )}
           </div>
 
-          <button type="button" onClick={nextAction} className={NAV_BTN}
-            title={planView === 'week' ? 'Next week' : 'Next 4 weeks'}>›</button>
+          {!isGuest && (
+            <button type="button" onClick={nextAction} className={NAV_BTN}
+              title={planView === 'week' ? 'Next week' : 'Next 4 weeks'}>›</button>
+          )}
         </div>
 
         {/* Right: List / Grid toggle — week view, desktop only */}

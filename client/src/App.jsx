@@ -991,7 +991,9 @@ const handleRenameMiscItem = async (id, newName) => {
       {/* Guest banner */}
       {isGuest && (
         <div className="flex items-center justify-between gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-300">
-          <span className="min-w-0">👋 Browsing as guest — plan saved locally. Sign in to unlock history, other items, and cloud sync.</span>
+          <span className="min-w-0">
+            👋 Browsing as guest<span className="hidden sm:inline"> — plan saved locally. Sign in to unlock history, other items, and cloud sync</span>.
+          </span>
           <button onClick={signIn} className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors">
             Sign in
           </button>
@@ -1040,14 +1042,14 @@ const handleRenameMiscItem = async (id, newName) => {
             {[
               { id: 'mains',   label: 'Mains',       icon: <UtensilsIcon size={14} /> },
               { id: 'sides',   label: 'Sides',        icon: <BowlIcon size={14} />     },
-              { id: 'misc',    label: 'Other Items',  icon: <PackageIcon size={14} />  },
+              { id: 'misc',    label: 'Other',        icon: <PackageIcon size={14} />  },
               { id: 'pantry',  label: 'Pantry',       icon: <PantryIcon size={14} />   },
-            ].map((sub) => (
+            ].filter((sub) => !isGuest || sub.id === 'mains' || sub.id === 'sides').map((sub) => (
               <button
                 key={sub.id}
                 type="button"
                 onClick={() => navigateTo(sub.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-all duration-150 ${
+                className={`flex-1 flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg px-1.5 sm:px-3 py-2 text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                   activeTab === sub.id
                     ? 'bg-white text-emerald-600 shadow-sm dark:bg-slate-700 dark:text-emerald-400'
                     : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
@@ -1299,9 +1301,10 @@ const handleRenameMiscItem = async (id, newName) => {
                   onBatchCheck={handleBatchCheckGrocery}
                   onExitShopMode={handleExitShopMode}
                   pantryItems={pantryItems}
-                  onAddToPantry={handleAddToPantry}
-                  onRemoveFromPantry={handleRemoveFromPantry}
-                  onNavigateToPantry={() => navigateTo('pantry')}
+                  onAddToPantry={isGuest ? null : handleAddToPantry}
+                  onRemoveFromPantry={isGuest ? null : handleRemoveFromPantry}
+                  onNavigateToPantry={isGuest ? null : () => navigateTo('pantry')}
+                  planHasMeals={planEntries.length > 0}
                 />
               </section>
             ) : (
@@ -1312,16 +1315,17 @@ const handleRenameMiscItem = async (id, newName) => {
                   allSides={sides}
                   weekStart={currentWeekStart}
                   isReadOnlyWeek={isReadOnlyWeek}
-                  onPrevWeek={handlePrevWeek}
-                  onNextWeek={handleNextWeek}
-                  onGoToCurrentWeek={handleGoToCurrentWeek}
+                  isGuest={isGuest}
+                  onPrevWeek={isGuest ? null : handlePrevWeek}
+                  onNextWeek={isGuest ? null : handleNextWeek}
+                  onGoToCurrentWeek={isGuest ? null : handleGoToCurrentWeek}
                   onAddMainToPlan={isReadOnlyWeek ? null : handleAddMainToPlan}
                   onRemoveEntry={isReadOnlyWeek ? null : handleRemoveEntryFromPlan}
                   onAttachSide={isReadOnlyWeek ? null : handleAttachSide}
                   onRemoveSide={isReadOnlyWeek ? null : handleRemoveSide}
                   onSavePlan={isReadOnlyWeek || isGuest ? null : () => setSavePlanDialogOpen(true)}
                   onReorderEntries={isReadOnlyWeek ? null : handleReorderPlan}
-                  onRandomizeWeek={isGuest ? null : handleRandomizeWeek}
+                  onRandomizeWeek={isReadOnlyWeek ? null : handleRandomizeWeek}
                   onUpdateServings={isReadOnlyWeek ? null : handleUpdateServings}
                   onRateDish={isGuest ? null : handleRateDish}
                   onShareToMarketplace={isGuest || isReadOnlyWeek ? null : handleShareWeekToMarketplace}

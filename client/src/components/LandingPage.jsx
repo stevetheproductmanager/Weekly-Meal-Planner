@@ -167,17 +167,17 @@ function AppMockup() {
         </div>
       </div>
 
-      {/* Floating tonight callout */}
+      {/* Floating tonight callout — desktop only, overlaps the mockup on phones */}
       <div
-        className="absolute -right-4 top-28 rounded-xl border border-cyan-800/60 px-3 py-2 shadow-xl text-[11px] font-semibold text-cyan-300"
+        className="hidden md:block absolute -right-4 top-28 rounded-xl border border-cyan-800/60 px-3 py-2 shadow-xl text-[11px] font-semibold text-cyan-300"
         style={{ background: '#0c1a2e' }}
       >
         🌙 Tonight's dinner, front & centre
       </div>
 
-      {/* Floating templates callout */}
+      {/* Floating templates callout — desktop only */}
       <div
-        className="absolute -left-6 bottom-20 rounded-xl border border-violet-800/60 px-3 py-2 shadow-xl text-[11px] font-semibold text-violet-300"
+        className="hidden md:block absolute -left-6 bottom-20 rounded-xl border border-violet-800/60 px-3 py-2 shadow-xl text-[11px] font-semibold text-violet-300"
         style={{ background: '#1e1b4b' }}
       >
         📂 Load a saved week as template

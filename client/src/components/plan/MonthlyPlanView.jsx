@@ -235,7 +235,7 @@ function MonthlyPlanView({
                     ) : (
                       <div className="flex flex-col items-center justify-center w-full h-full gap-0.5">
                         <span className="text-[13px] font-light text-slate-300 dark:text-slate-600 leading-none">+</span>
-                        <span className="text-[9px] text-slate-300 dark:text-slate-600 leading-none">No meal</span>
+                        <span className="hidden sm:block text-[9px] text-slate-300 dark:text-slate-600 leading-none">No meal</span>
                       </div>
                     )}
                   </div>

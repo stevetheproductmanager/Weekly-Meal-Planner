@@ -3,18 +3,18 @@ import React, { useState, useMemo } from 'react';
 // ─── Preference definitions ───────────────────────────────────────────────────
 
 const CUISINES = [
-  { id: 'Italian',        label: 'Italian',        emoji: '🇮🇹' },
+  { id: 'Italian',        label: 'Italian',        emoji: '🍕' },
   { id: 'Mexican',        label: 'Mexican',        emoji: '🌮' },
   { id: 'Indian',         label: 'Indian',         emoji: '🍛' },
   { id: 'Chinese',        label: 'Chinese',        emoji: '🥢' },
   { id: 'Japanese',       label: 'Japanese',       emoji: '🍱' },
   { id: 'Thai',           label: 'Thai',           emoji: '🌶️' },
-  { id: 'Greek',          label: 'Greek',          emoji: '🫒' },
+  { id: 'Greek',          label: 'Greek',          emoji: '🥙' },
   { id: 'French',         label: 'French',         emoji: '🥖' },
   { id: 'BBQ',            label: 'BBQ',            emoji: '🔥' },
-  { id: 'Mediterranean',  label: 'Mediterranean',  emoji: '🫐' },
+  { id: 'Mediterranean',  label: 'Mediterranean',  emoji: '🍋' },
   { id: 'American',       label: 'American',       emoji: '🍔' },
-  { id: 'Korean',         label: 'Korean',         emoji: '🥘' },
+  { id: 'Korean',         label: 'Korean',         emoji: '🍚' },
   { id: 'Vietnamese',     label: 'Vietnamese',     emoji: '🍜' },
   { id: 'British',        label: 'British',        emoji: '☕' },
 ];
@@ -34,7 +34,7 @@ const PROTEINS = [
 
 const STYLES = [
   { id: 'Quick',        label: 'Quick & Easy',    emoji: '⚡' },
-  { id: 'Slow cooked',  label: 'Slow cooked',     emoji: '🫕' },
+  { id: 'Slow cooked',  label: 'Slow cooked',     emoji: '🥘' },
   { id: 'Grilling',     label: 'Grilling',        emoji: '🔥' },
   { id: 'One-pot',      label: 'One pot',         emoji: '🍲' },
   { id: 'Comfort food', label: 'Comfort food',    emoji: '🧸' },

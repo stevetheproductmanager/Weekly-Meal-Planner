@@ -25,6 +25,7 @@ function GroceryList({
   onAddToPantry,
   onRemoveFromPantry,
   onNavigateToPantry = null,
+  planHasMeals = false,
 }) {
   const [groupBy, setGroupBy]           = useState('category');
   const [search, setSearch]             = useState('');
@@ -54,7 +55,9 @@ function GroceryList({
         <div>
           <p className="font-medium text-slate-700 dark:text-slate-300">Your list is empty</p>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-            Add meals to your Weekly Plan and the ingredients will appear here.
+            {planHasMeals
+              ? "Your planned meals don't have any ingredients yet — edit a dish to add them."
+              : 'Add meals to your Weekly Plan and the ingredients will appear here.'}
           </p>
         </div>
         {!shoppingMode && onAddCustomItem && (

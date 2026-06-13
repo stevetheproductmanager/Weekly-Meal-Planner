@@ -285,7 +285,7 @@ function MobileListItem({ entry, index, isTonight, allSides, onRemoveEntry, onAt
         </div>
         <div
           style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s ease' }}
-          className="relative bg-white/50 dark:bg-slate-900/30 px-4 py-3 flex items-center justify-between gap-3"
+          className="relative bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between gap-3"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -322,7 +322,7 @@ function MobileListItem({ entry, index, isTonight, allSides, onRemoveEntry, onAt
       {/* Main card — slides left to reveal delete zone */}
       <div
         style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s ease' }}
-        className={`relative ${color.cardBg} p-4 space-y-2.5`}
+        className={`relative bg-white dark:bg-slate-900 ${color.cardBg} p-4 space-y-2.5`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -367,17 +367,19 @@ function MobileListItem({ entry, index, isTonight, allSides, onRemoveEntry, onAt
         </button>
       </div>
 
-      {/* Star rating */}
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
-          {entry.main?.myRating ? 'Your rating:' : 'Rate:'}
-        </span>
-        <StarRating
-          rating={entry.main?.myRating || 0}
-          onRate={onRateDish}
-          compact
-        />
-      </div>
+      {/* Star rating — hidden for guests (no rating without an account) */}
+      {onRateDish && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
+            {entry.main?.myRating ? 'Your rating:' : 'Rate:'}
+          </span>
+          <StarRating
+            rating={entry.main?.myRating || 0}
+            onRate={onRateDish}
+            compact
+          />
+        </div>
+      )}
 
       {/* Servings stepper */}
       {onUpdateServings && (
@@ -694,7 +696,7 @@ function DesktopListItem({
         )}
 
         <div className="flex items-center gap-3">
-          <StarRating rating={entry.main?.myRating || 0} onRate={onRateDish} compact />
+          {onRateDish && <StarRating rating={entry.main?.myRating || 0} onRate={onRateDish} compact />}
           {onUpdateServings && (
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-slate-400 dark:text-slate-500">Servings:</span>
@@ -912,7 +914,7 @@ function GridCard({ entry, index, isTonight, color, allSides, onRemoveEntry, onA
         )}
 
         <div className="flex items-center justify-between gap-1">
-          <StarRating rating={entry.main?.myRating || 0} onRate={onRateDish} compact />
+          {onRateDish && <StarRating rating={entry.main?.myRating || 0} onRate={onRateDish} compact />}
           {onUpdateServings && <ServingsStepper servings={entry.servings || 4} onUpdate={onUpdateServings} />}
         </div>
 
