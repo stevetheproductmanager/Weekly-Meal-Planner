@@ -67,12 +67,11 @@ export default function AppHeader({
         {/* Single row: logo | tabs (desktop) | right controls */}
         <div className="flex items-stretch h-14 px-4 sm:px-6 gap-1">
 
-          {/* Logo — full name on tablet/desktop, short name on phones */}
+          {/* Logo — the header row only holds logo + controls, so the full name always fits */}
           <div className="flex items-center gap-2 pr-3 sm:pr-4 xl:pr-6 shrink-0">
             <span className="text-emerald-500"><UtensilsIcon size={19} /></span>
             <span className="font-bold tracking-tight text-slate-900 dark:text-slate-50 whitespace-nowrap">
-              <span className="hidden md:inline">What's Simmering?</span>
-              <span className="md:hidden">Simmering</span>
+              What's Simmering?
             </span>
           </div>
 

@@ -286,14 +286,14 @@ function InventoryTab({
           </select>
         )}
 
-        {/* Per page */}
+        {/* Per page — desktop only */}
         <select
           value={pageSize}
           onChange={(e) => {
             const val = e.target.value;
             setPageSize(val === 'All' ? 'All' : Number(val));
           }}
-          className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
+          className="hidden sm:block bg-white border border-slate-300 rounded-md px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100"
         >
           {PAGE_SIZES.map((s) => (
             <option key={s} value={s}>{s === 'All' ? 'Show all' : `${s} / page`}</option>

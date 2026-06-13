@@ -3,7 +3,9 @@ import { PencilIcon, TrashIcon, XIcon, CheckIcon } from './Icons';
 
 function MiscItemsTab({ items, activeGroceryInventoryIds = new Set(), canEditItem = () => true, onAddToGrocery, onDeleteItem, onOpenMiscDialog }) {
   const safeItems = Array.isArray(items) ? items : [];
-  const [viewMode, setViewMode] = useState('cards');
+  const [viewMode, setViewMode] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 'list' : 'cards'
+  );
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('az');
 

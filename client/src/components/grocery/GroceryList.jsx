@@ -296,8 +296,8 @@ function GroceryList({
   return (
     <div className="space-y-3">
 
-      {/* ── Controls row ─────────────────────────────────────────────────── */}
-      <div className="print:hidden flex flex-wrap items-center gap-2">
+      {/* ── Controls row — desktop only; on mobile the list IS the interface ── */}
+      <div className="print:hidden hidden sm:flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-0">
           <input
             type="text"

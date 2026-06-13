@@ -78,7 +78,10 @@ function App() {
     catch { return []; }
   });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'list'
+  // Mobile defaults to the compact list — cards are a desktop luxury
+  const [viewMode, setViewMode] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 'list' : 'cards'
+  ); // 'cards' | 'list'
 
   const [dishDialog, setDishDialog] = useState({
     open: false,
@@ -176,6 +179,20 @@ const [miscDialogItem, setMiscDialogItem] = useState(null); // null = add, objec
 
   // planWithDetails is derived further down — passed at call time
   const handleCopyGroceryList = () => copyGroceryList(planWithDetails);
+
+  // Mobile-only overflow menu for grocery secondary actions
+  const [groceryMenuOpen, setGroceryMenuOpen] = useState(false);
+  const groceryMenuRef = useRef(null);
+  useEffect(() => {
+    if (!groceryMenuOpen) return;
+    const handler = (e) => {
+      if (groceryMenuRef.current && !groceryMenuRef.current.contains(e.target)) {
+        setGroceryMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [groceryMenuOpen]);
 
   // ---- Online/offline detection ----
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -1208,7 +1225,7 @@ const handleRenameMiscItem = async (id, newName) => {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Shopping mode toggle */}
+                    {/* Shopping mode toggle — always visible, it's the core action */}
                     <button
                       type="button"
                       onClick={() => setShoppingMode((v) => !v)}
@@ -1221,10 +1238,47 @@ const handleRenameMiscItem = async (id, newName) => {
                       <ShoppingCartIcon size={13} />
                       {shoppingMode ? 'Exit shop' : 'Shop'}
                     </button>
+
+                    {/* Mobile: secondary actions collapse into one ⋯ menu */}
+                    <div className="relative sm:hidden" ref={groceryMenuRef}>
+                      <button type="button" onClick={() => setGroceryMenuOpen(v => !v)} aria-label="More actions"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-base font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+                        ⋯
+                      </button>
+                      {groceryMenuOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 w-52 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 overflow-hidden p-1">
+                          {shoppingMode && checkedGroceryKeys.length > 0 && (
+                            <button type="button" onClick={() => { setGroceryMenuOpen(false); handleClearCheckedGrocery(); }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                              ✕ Clear checked ({checkedGroceryKeys.length})
+                            </button>
+                          )}
+                          {allGroceryItems.length > 0 && (
+                            <button type="button" onClick={() => { setGroceryMenuOpen(false); handleCopyGroceryList(); }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                              📋 Copy list
+                            </button>
+                          )}
+                          {!shoppingMode && !isGuest && (
+                            <button type="button" onClick={() => { setGroceryMenuOpen(false); setMiscDialogOpen(true); }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                              ＋ Add item
+                            </button>
+                          )}
+                          {!shoppingMode && (
+                            <button type="button" onClick={() => { setGroceryMenuOpen(false); handleResetGroceryList(); }}
+                              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                              ↺ Reset hidden
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {shoppingMode && checkedGroceryKeys.length > 0 && (
                       <button
                         type="button"
-                        className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-red-300 hover:text-red-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
+                        className="hidden sm:inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-red-300 hover:text-red-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-red-700 dark:hover:text-red-400"
                         onClick={handleClearCheckedGrocery}
                       >
                         Clear checked ({checkedGroceryKeys.length})
@@ -1234,7 +1288,7 @@ const handleRenameMiscItem = async (id, newName) => {
                       <>
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-violet-300 hover:text-violet-700 transition-colors dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-violet-700 dark:hover:text-violet-400"
+                          className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-violet-300 hover:text-violet-700 transition-colors dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-violet-700 dark:hover:text-violet-400"
                           onClick={handleCopyGroceryList}
                           title="Copy list as text for sharing"
                         >
@@ -1242,7 +1296,7 @@ const handleRenameMiscItem = async (id, newName) => {
                         </button>
                         <button
                           type="button"
-                          className="print:hidden inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-800 transition-colors dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
+                          className="print:hidden hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-800 transition-colors dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-slate-500 dark:hover:text-slate-200"
                           onClick={() => window.print()}
                           title="Print grocery list"
                         >
@@ -1254,14 +1308,14 @@ const handleRenameMiscItem = async (id, newName) => {
                       <>
                         <button
                           type="button"
-                          className="inline-flex items-center rounded-lg border border-emerald-400 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:bg-slate-950 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                          className="hidden sm:inline-flex items-center rounded-lg border border-emerald-400 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:bg-slate-950 dark:text-emerald-400 dark:hover:bg-emerald-950/40"
                           onClick={() => setMiscDialogOpen(true)}
                         >
                           + Add item
                         </button>
                         <button
                           type="button"
-                          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
+                          className="hidden sm:inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
                           onClick={handleResetGroceryList}
                         >
                           Reset hidden
@@ -1270,9 +1324,9 @@ const handleRenameMiscItem = async (id, newName) => {
                     )}
                   </div>
                 </div>
-                {/* ── Week meal-context strip ── */}
+                {/* ── Week meal-context strip — desktop only ── */}
                 {planWithDetails.length > 0 && (
-                  <div className="mb-4 flex flex-wrap gap-1.5">
+                  <div className="mb-4 hidden sm:flex flex-wrap gap-1.5">
                     {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].slice(0, planWithDetails.length).map((day, i) => {
                       const entry = planWithDetails[i];
                       return (

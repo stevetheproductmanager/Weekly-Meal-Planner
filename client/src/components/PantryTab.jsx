@@ -44,6 +44,10 @@ const COMMON_STAPLES = [
 function PantryTab({ items = [], onAdd, onRemove }) {
   const [input, setInput]   = useState('');
   const [search, setSearch] = useState('');
+  // The staples wall is huge — collapsed by default on phones
+  const [staplesOpen, setStaplesOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 640 : true
+  );
 
   // Fast lookup: lowercase name → id
   const itemMap = new Map(items.map(i => [i.name.toLowerCase(), i.id || i._id]));
@@ -90,9 +94,15 @@ function PantryTab({ items = [], onAdd, onRemove }) {
 
       {/* ── Common staples quick-toggle grid ────────────────────────────── */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
-          Common staples — click to add or remove
-        </p>
+        <button
+          type="button"
+          onClick={() => setStaplesOpen(v => !v)}
+          className="flex w-full items-center justify-between mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500"
+        >
+          <span>Common staples — tap to add or remove</span>
+          <span className="text-slate-400">{staplesOpen ? '▾' : '▸'}</span>
+        </button>
+        {staplesOpen && (
         <div className="flex flex-wrap gap-1.5">
           {COMMON_STAPLES.map(staple => {
             const already = hasItem(staple);
@@ -119,6 +129,7 @@ function PantryTab({ items = [], onAdd, onRemove }) {
             );
           })}
         </div>
+        )}
       </div>
 
       {/* ── Current pantry items ─────────────────────────────────────────── */}

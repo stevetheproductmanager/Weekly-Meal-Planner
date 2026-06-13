@@ -73,7 +73,9 @@ function StarRating({ rating = 0, onRate, compact = false }) {
 function WeeklyPlan({ entries, allMains, allSides, view = 'grid', weekStart, recentMealIds = [], onAddMainToPlan, onRemoveEntry, onAttachSide, onRemoveSide, onReorderEntries, onUpdateServings, onRateDish, onAddOutDay, onUpdateNote }) {
   const safeEntries = Array.isArray(entries) ? entries : [];
   const [pickerOpen, setPickerOpen] = useState(false);
-  const canAddMore  = safeEntries.length < 7;
+  // Read-only weeks pass null handlers — no add affordances at all then
+  const canEdit     = typeof onAddMainToPlan === 'function';
+  const canAddMore  = safeEntries.length < 7 && canEdit;
   const todayIndex  = getTodayIndex(weekStart);
 
   const handleAdd = (mainId) => {
@@ -90,7 +92,7 @@ function WeeklyPlan({ entries, allMains, allSides, view = 'grid', weekStart, rec
           allSides={allSides}
           canAddMore={canAddMore}
           todayIndex={todayIndex}
-          onOpenPicker={() => setPickerOpen(true)}
+          onOpenPicker={canEdit ? () => setPickerOpen(true) : null}
           onRemoveEntry={onRemoveEntry}
           onAttachSide={onAttachSide}
           onRemoveSide={onRemoveSide}
@@ -109,7 +111,7 @@ function WeeklyPlan({ entries, allMains, allSides, view = 'grid', weekStart, rec
             allSides={allSides}
             canAddMore={canAddMore}
             todayIndex={todayIndex}
-            onOpenPicker={() => setPickerOpen(true)}
+            onOpenPicker={canEdit ? () => setPickerOpen(true) : null}
             onRemoveEntry={onRemoveEntry}
             onAttachSide={onAttachSide}
             onRemoveSide={onRemoveSide}
@@ -124,7 +126,7 @@ function WeeklyPlan({ entries, allMains, allSides, view = 'grid', weekStart, rec
             allSides={allSides}
             canAddMore={canAddMore}
             todayIndex={todayIndex}
-            onOpenPicker={() => setPickerOpen(true)}
+            onOpenPicker={canEdit ? () => setPickerOpen(true) : null}
             onRemoveEntry={onRemoveEntry}
             onAttachSide={onAttachSide}
             onRemoveSide={onRemoveSide}
@@ -145,6 +147,7 @@ function WeeklyPlan({ entries, allMains, allSides, view = 'grid', weekStart, rec
           nextDayIndex={safeEntries.length}
           recentIds={recentMealIds}
           onAdd={handleAdd}
+          onAddOutDay={onAddOutDay ? () => { onAddOutDay(); setPickerOpen(false); } : null}
           onClose={() => setPickerOpen(false)}
         />
       )}
@@ -185,25 +188,13 @@ function MobileListView({ entries, allSides, canAddMore, todayIndex, onOpenPicke
   return (
     <div className="space-y-2">
       {canAddMore && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="flex-1 rounded-xl border-2 border-dashed border-slate-300 py-4 text-sm font-semibold text-slate-400 transition-all hover:border-emerald-400 hover:bg-emerald-50/60 hover:text-emerald-600 dark:border-slate-700 dark:hover:border-emerald-500 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
-            onClick={onOpenPicker}
-          >
-            ＋ Add dinner{entries.length > 0 ? ` — ${DAYS[entries.length]}` : ''}
-          </button>
-          {onAddOutDay && (
-            <button
-              type="button"
-              onClick={() => onAddOutDay()}
-              title={`Mark ${DAYS[entries.length]} as eating out`}
-              className="shrink-0 rounded-xl border-2 border-dashed border-slate-200 px-3 text-sm font-medium text-slate-400 transition-all hover:border-slate-400 hover:text-slate-600 dark:border-slate-800 dark:hover:border-slate-600"
-            >
-              🍽️
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          className="w-full rounded-xl border-2 border-dashed border-slate-300 py-4 text-sm font-semibold text-slate-400 transition-all hover:border-emerald-400 hover:bg-emerald-50/60 hover:text-emerald-600 dark:border-slate-700 dark:hover:border-emerald-500 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
+          onClick={onOpenPicker}
+        >
+          ＋ Add dinner{entries.length > 0 ? ` — ${DAYS[entries.length]}` : ''}
+        </button>
       )}
       {entries.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 py-10 text-center space-y-3">
@@ -263,7 +254,7 @@ function MobileListItem({ entry, index, isTonight, allSides, onRemoveEntry, onAt
     }
   }, [isSwiping]);
   const handleTouchEnd = () => {
-    if (swipeOffset < -SWIPE_THRESHOLD) {
+    if (swipeOffset < -SWIPE_THRESHOLD && onRemoveEntry) {
       onRemoveEntry(entry.id);
     } else {
       setSwipeOffset(0);
@@ -301,10 +292,12 @@ function MobileListItem({ entry, index, isTonight, allSides, onRemoveEntry, onAt
               🍽️ {entry.label || 'Eating out'}
             </span>
           </div>
-          <button onClick={() => onRemoveEntry(entry.id)}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-white/70 text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors">
-            <XIcon size={12} />
-          </button>
+          {onRemoveEntry && (
+            <button onClick={() => onRemoveEntry(entry.id)}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-white/70 text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors">
+              <XIcon size={12} />
+            </button>
+          )}
         </div>
       </li>
     );
@@ -351,64 +344,64 @@ function MobileListItem({ entry, index, isTonight, allSides, onRemoveEntry, onAt
                 {entry.sides.map(side => (
                   <span key={side.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 min-w-0 max-w-full">
                     <span className="truncate">{side.name}</span>
-                    <button type="button" onClick={() => onRemoveSide(entry.id, side.id)}
-                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-red-300 hover:bg-red-900/40 focus:outline-none">
-                      <XIcon size={10} />
-                    </button>
+                    {onRemoveSide && (
+                      <button type="button" onClick={() => onRemoveSide(entry.id, side.id)}
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-red-300 hover:bg-red-900/40 focus:outline-none">
+                        <XIcon size={10} />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
             )}
           </div>
         </div>
+        {onRemoveEntry && (
         <button onClick={() => onRemoveEntry(entry.id)}
           className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-white/70 text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 dark:border-slate-700/60 dark:bg-slate-900/40 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors">
           <XIcon size={12} />
         </button>
+        )}
       </div>
 
-      {/* Star rating — hidden for guests (no rating without an account) */}
-      {onRateDish && (
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
-            {entry.main?.myRating ? 'Your rating:' : 'Rate:'}
-          </span>
-          <StarRating
-            rating={entry.main?.myRating || 0}
-            onRate={onRateDish}
-            compact
-          />
+      {/* Rating + servings — single compact row */}
+      {(onRateDish || onUpdateServings) && (
+        <div className="flex items-center justify-between gap-2">
+          {onRateDish ? (
+            <StarRating
+              rating={entry.main?.myRating || 0}
+              onRate={onRateDish}
+              compact
+            />
+          ) : <span />}
+          {onUpdateServings && (
+            <ServingsStepper servings={entry.servings || 4} onUpdate={onUpdateServings} />
+          )}
         </div>
       )}
 
-      {/* Servings stepper */}
-      {onUpdateServings && (
+      {/* Bottom row: full-width side selector + check button (hidden on read-only weeks) */}
+      {onAttachSide && (
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0">Servings:</span>
-          <ServingsStepper servings={entry.servings || 4} onUpdate={onUpdateServings} />
+          <select value={sideToAdd} onChange={e => setSideToAdd(e.target.value)}
+            className="flex-1 min-w-0 max-w-full truncate rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100">
+            <option value="">Add a side dish…</option>
+            {availableSides.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name.length > 35 ? s.name.slice(0, 34) + '…' : s.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => { if (!sideToAdd) return; onAttachSide(entry.id, sideToAdd); setSideToAdd(''); }}
+            disabled={!sideToAdd}
+            className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors disabled:opacity-30 border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-400 hover:border-emerald-400 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:border-slate-700 dark:disabled:bg-slate-800"
+          >
+            <CheckIcon size={13} />
+          </button>
         </div>
       )}
-
-      {/* Bottom row: full-width side selector + check button */}
-      <div className="flex items-center gap-2">
-        <select value={sideToAdd} onChange={e => setSideToAdd(e.target.value)}
-          className="flex-1 min-w-0 max-w-full truncate rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-950 dark:border-slate-700 dark:text-slate-100">
-          <option value="">Add a side dish…</option>
-          {availableSides.map(s => (
-            <option key={s.id} value={s.id}>
-              {s.name.length > 35 ? s.name.slice(0, 34) + '…' : s.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={() => { if (!sideToAdd) return; onAttachSide(entry.id, sideToAdd); setSideToAdd(''); }}
-          disabled={!sideToAdd}
-          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors disabled:opacity-30 border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-400 hover:border-emerald-400 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400 dark:disabled:border-slate-700 dark:disabled:bg-slate-800"
-        >
-          <CheckIcon size={13} />
-        </button>
-      </div>
 
       {/* Per-entry note */}
       {onUpdateNote && (
@@ -614,12 +607,14 @@ function DesktopListItem({
             🍽️ {entry.label || 'Eating out'}
           </span>
         </div>
-        <div className="shrink-0 flex items-center px-3 border-l border-slate-200/60 dark:border-slate-800/50">
-          <button onClick={() => onRemoveEntry(entry.id)}
-            className="h-7 w-7 flex items-center justify-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500 dark:text-slate-700 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
-            <XIcon size={12} />
-          </button>
-        </div>
+        {onRemoveEntry && (
+          <div className="shrink-0 flex items-center px-3 border-l border-slate-200/60 dark:border-slate-800/50">
+            <button onClick={() => onRemoveEntry(entry.id)}
+              className="h-7 w-7 flex items-center justify-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500 dark:text-slate-700 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
+              <XIcon size={12} />
+            </button>
+          </div>
+        )}
       </li>
     );
   }
@@ -686,10 +681,12 @@ function DesktopListItem({
               <span key={side.id}
                 className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/50">
                 {side.name}
-                <button type="button" onClick={() => onRemoveSide(entry.id, side.id)}
-                  className="text-slate-400 hover:text-red-400 transition-colors ml-0.5">
-                  <XIcon size={8} />
-                </button>
+                {onRemoveSide && (
+                  <button type="button" onClick={() => onRemoveSide(entry.id, side.id)}
+                    className="text-slate-400 hover:text-red-400 transition-colors ml-0.5">
+                    <XIcon size={8} />
+                  </button>
+                )}
               </span>
             ))}
           </div>
@@ -754,7 +751,8 @@ function DesktopListItem({
         )}
       </div>
 
-      {/* Add side — fixed-width panel so layout never shifts */}
+      {/* Add side — fixed-width panel so layout never shifts (hidden on read-only weeks) */}
+      {onAttachSide && (
       <div className="shrink-0 flex items-center gap-2 px-4 border-l border-slate-200/60 dark:border-slate-800/50 w-60">
         {availableSides.length > 0 ? (
           <>
@@ -772,14 +770,17 @@ function DesktopListItem({
           <span className="text-xs text-slate-300 dark:text-slate-700 select-none">All sides added</span>
         )}
       </div>
+      )}
 
       {/* Delete */}
-      <div className="shrink-0 flex items-center px-3 border-l border-slate-200/60 dark:border-slate-800/50">
-        <button onClick={() => onRemoveEntry(entry.id)}
-          className="h-7 w-7 flex items-center justify-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500 dark:text-slate-700 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
-          <XIcon size={12} />
-        </button>
-      </div>
+      {onRemoveEntry && (
+        <div className="shrink-0 flex items-center px-3 border-l border-slate-200/60 dark:border-slate-800/50">
+          <button onClick={() => onRemoveEntry(entry.id)}
+            className="h-7 w-7 flex items-center justify-center rounded-full text-slate-300 hover:bg-red-50 hover:text-red-500 dark:text-slate-700 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
+            <XIcon size={12} />
+          </button>
+        </div>
+      )}
     </li>
   );
 }
@@ -857,10 +858,12 @@ function GridCard({ entry, index, isTonight, color, allSides, onRemoveEntry, onA
         style={{ minHeight: 220 }}>
         <div className={`px-2.5 py-2 ${color.header} border-b border-slate-200/50 dark:border-slate-700/40 flex items-center justify-between shrink-0`}>
           <span className={`text-[10px] font-bold uppercase tracking-widest ${color.label}`}>{DAYS_SHORT[index]}</span>
-          <button type="button" onClick={() => onRemoveEntry(entry.id)} title="Remove"
-            className="text-slate-400 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors">
-            <XIcon size={9} />
-          </button>
+          {onRemoveEntry && (
+            <button type="button" onClick={() => onRemoveEntry(entry.id)} title="Remove"
+              className="text-slate-400 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors">
+              <XIcon size={9} />
+            </button>
+          )}
         </div>
         <div className="flex-1 flex flex-col items-center justify-center gap-1.5 p-2.5 bg-slate-50/40 dark:bg-slate-900/20">
           <span className="text-2xl">🍽️</span>
@@ -882,10 +885,12 @@ function GridCard({ entry, index, isTonight, color, allSides, onRemoveEntry, onA
             <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Tonight</span>
           )}
         </div>
-        <button type="button" onClick={() => onRemoveEntry(entry.id)} title="Remove"
-          className="text-slate-400 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors">
-          <XIcon size={9} />
-        </button>
+        {onRemoveEntry && (
+          <button type="button" onClick={() => onRemoveEntry(entry.id)} title="Remove"
+            className="text-slate-400 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors">
+            <XIcon size={9} />
+          </button>
+        )}
       </div>
 
       <div className={`flex flex-col flex-1 p-2.5 gap-2 ${color.cardBg}`}>
@@ -904,10 +909,12 @@ function GridCard({ entry, index, isTonight, color, allSides, onRemoveEntry, onA
             {entry.sides.map(side => (
               <div key={side.id} className="flex items-center justify-between gap-1 rounded-md bg-white/70 dark:bg-slate-800/60 px-1.5 py-0.5 border border-slate-200/60 dark:border-slate-700/50">
                 <span className="text-[11px] text-slate-600 dark:text-slate-300 truncate">{side.name}</span>
-                <button type="button" onClick={() => onRemoveSide(entry.id, side.id)}
-                  className="shrink-0 text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-colors">
-                  <XIcon size={8} />
-                </button>
+                {onRemoveSide && (
+                  <button type="button" onClick={() => onRemoveSide(entry.id, side.id)}
+                    className="shrink-0 text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400 transition-colors">
+                    <XIcon size={8} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -918,7 +925,7 @@ function GridCard({ entry, index, isTonight, color, allSides, onRemoveEntry, onA
           {onUpdateServings && <ServingsStepper servings={entry.servings || 4} onUpdate={onUpdateServings} />}
         </div>
 
-        {availableSides.length > 0 && (
+        {onAttachSide && availableSides.length > 0 && (
           <div className="mt-auto pt-2 border-t border-slate-200/50 dark:border-slate-700/30 flex gap-1">
             <select value={sideToAdd} onChange={e => setSideToAdd(e.target.value)}
               className="flex-1 min-w-0 rounded border border-slate-200 bg-white/80 px-1.5 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-800/80 dark:border-slate-700 dark:text-slate-300">
@@ -940,7 +947,7 @@ function GridCard({ entry, index, isTonight, color, allSides, onRemoveEntry, onA
 
 // ─── Dish picker modal ────────────────────────────────────────────────────────
 
-function DishPicker({ allMains, planEntries, nextDay, nextDayIndex, recentIds = [], onAdd, onClose }) {
+function DishPicker({ allMains, planEntries, nextDay, nextDayIndex, recentIds = [], onAdd, onAddOutDay = null, onClose }) {
   const [search,   setSearch]   = useState('');
   const [tab,      setTab]      = useState(() => recentIds.length > 0 ? 'recent' : 'all');
   const inputRef = useRef(null);
@@ -1016,6 +1023,17 @@ function DishPicker({ allMains, planEntries, nextDay, nextDayIndex, recentIds = 
               </button>
             ))}
           </div>
+        )}
+
+        {/* Eating out — alternative to picking a meal */}
+        {onAddOutDay && !q && (
+          <button
+            type="button"
+            onClick={onAddOutDay}
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-200 border-b border-slate-100 dark:border-slate-800 shrink-0 transition-colors"
+          >
+            🍽️ Eating out — no cooking on {nextDay}
+          </button>
         )}
 
         {/* Search */}

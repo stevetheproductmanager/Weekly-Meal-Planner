@@ -91,6 +91,8 @@ function PlanTab({
   const [shareCardOpen, setShareCardOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const templatesRef = useRef(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef(null);
 
   // Close templates dropdown on outside click
   useEffect(() => {
@@ -103,6 +105,18 @@ function PlanTab({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [templatesOpen]);
+
+  // Close mobile overflow menu on outside click
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handler = (e) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mobileMenuOpen]);
 
   const today     = getThisMonday();
   const isCurrent = weekStart === today;
@@ -296,7 +310,74 @@ function PlanTab({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* ── Mobile: Surprise me + overflow menu ── */}
+            <div className="flex sm:hidden items-center gap-2 relative" ref={mobileMenuRef}>
+              {onRandomizeWeek && !isReadOnlyWeek && entries.length < 7 && (
+                <button type="button" onClick={onRandomizeWeek}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-sm active:scale-95 transition-all">
+                  <DiceIcon size={14} />
+                  Surprise me
+                </button>
+              )}
+              {(onCopyPreviousWeek || entries.length > 0 || (onLoadTemplate && savedPlans.length > 0)) && (
+                <button type="button" onClick={() => setMobileMenuOpen(v => !v)} aria-label="More actions"
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-base font-bold transition-colors ${
+                    mobileMenuOpen
+                      ? 'border-slate-400 bg-slate-100 text-slate-700 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-200'
+                      : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400'
+                  }`}>
+                  ⋯
+                </button>
+              )}
+              {mobileMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-60 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 overflow-hidden">
+                  <div className="p-1">
+                    {onCopyPreviousWeek && (
+                      <button type="button" onClick={() => { setMobileMenuOpen(false); onCopyPreviousWeek(); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                        📋 Copy last week
+                      </button>
+                    )}
+                    {entries.length > 0 && (
+                      <button type="button" onClick={() => { setMobileMenuOpen(false); setShareCardOpen(true); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                        <ImageIcon size={14} /> Share image
+                      </button>
+                    )}
+                    {entries.length > 0 && onShareToMarketplace && (
+                      <button type="button" onClick={() => { setMobileMenuOpen(false); onShareToMarketplace(); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                        🌍 Publish to Spotlight
+                      </button>
+                    )}
+                    {entries.length > 0 && onSavePlan && (
+                      <button type="button" onClick={() => { setMobileMenuOpen(false); onSavePlan(); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30">
+                        <SaveIcon size={14} /> Save plan
+                      </button>
+                    )}
+                  </div>
+                  {onLoadTemplate && savedPlans.length > 0 && (
+                    <div className="border-t border-slate-100 dark:border-slate-800">
+                      <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Saved weeks</p>
+                      <div className="max-h-44 overflow-y-auto p-1 pt-0">
+                        {savedPlans.map(plan => (
+                          <button key={plan.id} type="button"
+                            onClick={() => { setMobileMenuOpen(false); onLoadTemplate(plan); }}
+                            className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-violet-50 dark:text-slate-300 dark:hover:bg-violet-950/30">
+                            <span className="truncate">📂 {plan.name}</span>
+                            <span className="shrink-0 text-xs font-semibold text-violet-600 dark:text-violet-400">Use →</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Desktop: full action chip row ── */}
+            <div className="hidden sm:flex items-center gap-2 flex-wrap">
               {onCopyPreviousWeek && (
                 <button type="button" onClick={onCopyPreviousWeek}
                   title="Copy last week's meals as a starting point"
